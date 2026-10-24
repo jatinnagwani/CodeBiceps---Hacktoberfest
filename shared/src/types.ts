@@ -456,3 +456,53 @@ export interface HealthStatusResponse {
     ready: boolean;
   };
 }
+
+// ─── Claim Watch Contracts ───────────────────────────────────────────────────
+
+export type ClaimWatchStatus =
+  | 'ACTIVITY_DETECTED'
+  | 'NEEDS_CHECK_IN'
+  | 'INSUFFICIENT_INFORMATION';
+
+export interface LinkedPullRequestSummary {
+  number: number;
+  title: string;
+  url: string;
+  state: 'open' | 'closed' | 'merged' | 'draft';
+  lastActivityAt?: string;
+  author: string;
+}
+
+export interface ClaimWatchEvidence {
+  label: string;
+  description: string;
+  type: 'VERIFIED_FACT' | 'ESTIMATE' | 'LIMITATION';
+  timestamp?: string;
+}
+
+export interface ClaimWatchRequest {
+  issueUrl: string;
+  inactivityThresholdDays?: number;
+  demoMode?: boolean;
+}
+
+export interface ClaimWatchResult {
+  issueUrl: string;
+  issueNumber: number;
+  owner: string;
+  repo: string;
+  issueTitle: string;
+  assignee: string | null;
+  status: ClaimWatchStatus;
+  statusHeadline: string;
+  inactivityThresholdDays: number;
+  lastObservableActivityAt: string | null;
+  daysSinceLastActivity: number | null;
+  claimDate: string | null;
+  claimSource: 'EXPLICIT_ASSIGNMENT' | 'COMMENT_CLAIM' | 'UNKNOWN';
+  linkedPullRequests: LinkedPullRequestSummary[];
+  evidence: ClaimWatchEvidence[];
+  generatedReminder: string;
+  isDemoData: boolean;
+  notes: string;
+}

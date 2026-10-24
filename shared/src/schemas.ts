@@ -284,3 +284,60 @@ export type AnalysisResultOutput = z.infer<typeof AnalysisResultSchema>;
 export type ReviewCommentOutput = z.infer<typeof ReviewCommentSchema>;
 export type EvidenceOutput = z.infer<typeof EvidenceSchema>;
 export type HeuristicFindingOutput = z.infer<typeof HeuristicFindingSchema>;
+
+// ─── Claim Watch Schemas ─────────────────────────────────────────────────────
+
+export const ClaimWatchStatusSchema = z.enum([
+  'ACTIVITY_DETECTED',
+  'NEEDS_CHECK_IN',
+  'INSUFFICIENT_INFORMATION',
+]);
+
+export const LinkedPullRequestSummarySchema = z.object({
+  number: z.number().int().positive(),
+  title: z.string().min(1),
+  url: z.string().url(),
+  state: z.enum(['open', 'closed', 'merged', 'draft']),
+  lastActivityAt: z.string().optional(),
+  author: z.string(),
+});
+
+export const ClaimWatchEvidenceSchema = z.object({
+  label: z.string().min(1),
+  description: z.string().min(1),
+  type: z.enum(['VERIFIED_FACT', 'ESTIMATE', 'LIMITATION']),
+  timestamp: z.string().optional(),
+});
+
+export const ClaimWatchRequestSchema = z.object({
+  issueUrl: z
+    .string()
+    .min(1, 'Issue URL is required')
+    .regex(
+      /^https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/issues\/\d+$/,
+      'Must be a valid GitHub issue URL (e.g. https://github.com/owner/repo/issues/123)'
+    ),
+  inactivityThresholdDays: z.number().int().min(1).max(90).default(7),
+  demoMode: z.boolean().optional(),
+});
+
+export const ClaimWatchResultSchema = z.object({
+  issueUrl: z.string().url(),
+  issueNumber: z.number().int().positive(),
+  owner: z.string().min(1),
+  repo: z.string().min(1),
+  issueTitle: z.string().min(1),
+  assignee: z.string().nullable(),
+  status: ClaimWatchStatusSchema,
+  statusHeadline: z.string().min(1),
+  inactivityThresholdDays: z.number().int().positive(),
+  lastObservableActivityAt: z.string().nullable(),
+  daysSinceLastActivity: z.number().nullable(),
+  claimDate: z.string().nullable(),
+  claimSource: z.enum(['EXPLICIT_ASSIGNMENT', 'COMMENT_CLAIM', 'UNKNOWN']),
+  linkedPullRequests: z.array(LinkedPullRequestSummarySchema),
+  evidence: z.array(ClaimWatchEvidenceSchema),
+  generatedReminder: z.string().min(1),
+  isDemoData: z.boolean(),
+  notes: z.string(),
+});

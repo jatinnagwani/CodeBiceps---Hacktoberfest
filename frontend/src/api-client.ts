@@ -104,3 +104,44 @@ export async function approveReviewComment(
 
   return res.json();
 }
+
+// ─── Claim Watch API ─────────────────────────────────────────────────────────
+
+export interface ClaimWatchSampleItem {
+  key: string;
+  title: string;
+  url: string;
+  assignee: string | null;
+  notes?: string;
+}
+
+export async function fetchClaimWatchSamples(): Promise<ClaimWatchSampleItem[]> {
+  const res = await fetch(`${BASE_URL}/claim-watch/samples`);
+  if (!res.ok) {
+    throw new Error('Failed to load Claim Watch sample issues');
+  }
+  return res.json();
+}
+
+export async function evaluateClaimWatch(
+  issueUrl: string,
+  inactivityThresholdDays = 7,
+  demoMode = false
+) {
+  const res = await fetch(`${BASE_URL}/claim-watch/evaluate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      issueUrl,
+      inactivityThresholdDays,
+      demoMode,
+    }),
+  });
+
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.error || `Claim Watch evaluation failed (HTTP ${res.status})`);
+  }
+
+  return res.json();
+}

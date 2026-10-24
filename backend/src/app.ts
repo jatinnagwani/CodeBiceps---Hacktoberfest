@@ -1,6 +1,7 @@
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import { triageRouter } from './routes/triage';
+import { claimWatchRouter } from './routes/claim-watch';
 
 export function createApp() {
   const app = express();
@@ -21,8 +22,9 @@ export function createApp() {
     return next(err);
   });
 
-  // Mount API router
+  // Mount API routers
   app.use('/api', triageRouter);
+  app.use('/api/claim-watch', claimWatchRouter);
 
   // Direct health route alias
   app.get('/health', (_req: Request, res: Response) => {

@@ -18,6 +18,7 @@ import { HeuristicsCard } from './components/HeuristicsCard';
 import { VerdictBanner } from './components/VerdictBanner';
 import { CommentApprovalCard } from './components/CommentApprovalCard';
 import { ContributorPreflightModal } from './components/ContributorPreflightModal';
+import { ClaimWatchView } from './components/ClaimWatchView';
 import {
   fetchHealth,
   fetchPullRequests,
@@ -49,6 +50,7 @@ export const App: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [analyzing, setAnalyzing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'pr-triage' | 'claim-watch'>('pr-triage');
   const [isTimeoutError, setIsTimeoutError] = useState<boolean>(false);
 
   // Initial load: health & pull requests from backend API (GET /api/pull-requests)
@@ -206,17 +208,52 @@ export const App: React.FC = () => {
 
       {/* Main Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 flex flex-col gap-6">
-        {/* Title Bar & Quick Actions */}
-        <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b border-slate-800/80">
-          <div>
-            <div className="flex items-center gap-2.5">
-              <span className="p-1.5 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-600 text-white shadow-md shadow-indigo-600/30">
-                <ShieldCheck className="h-5 w-5" />
-              </span>
-              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
-                PR Review & Triage Dashboard
-              </h1>
-            </div>
+        {/* Top-Level Navigation Tabs */}
+        <div className="flex items-center gap-2 border-b border-slate-800 pb-3">
+          <button
+            type="button"
+            onClick={() => setActiveTab('pr-triage')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition ${
+              activeTab === 'pr-triage'
+                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/25'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900 border border-transparent hover:border-slate-800'
+            }`}
+          >
+            <ShieldCheck className="h-4 w-4" />
+            <span>PR Triage Dashboard</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('claim-watch')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition ${
+              activeTab === 'claim-watch'
+                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/25'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900 border border-transparent hover:border-slate-800'
+            }`}
+          >
+            <Clock className="h-4 w-4" />
+            <span>Claim Watch</span>
+            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+              New
+            </span>
+          </button>
+        </div>
+
+        {activeTab === 'claim-watch' ? (
+          <ClaimWatchView />
+        ) : (
+          <>
+            {/* Title Bar & Quick Actions */}
+            <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b border-slate-800/80">
+              <div>
+                <div className="flex items-center gap-2.5">
+                  <span className="p-1.5 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-600 text-white shadow-md shadow-indigo-600/30">
+                    <ShieldCheck className="h-5 w-5" />
+                  </span>
+                  <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
+                    PR Review & Triage Dashboard
+                  </h1>
+                </div>
             <p className="text-xs sm:text-sm text-slate-400 mt-1 max-w-2xl leading-relaxed">
               Local-first triage pipeline designed to protect maintainers against spam while mentoring
               first-time contributors through evidence-backed, human-approved reviews.
@@ -443,6 +480,8 @@ export const App: React.FC = () => {
                 </div>
               </div>
             )}
+          </>
+        )}
           </>
         )}
       </main>

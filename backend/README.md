@@ -119,3 +119,11 @@ npm test
 ### 5. Evidence Verification
 - **`POST /api/evidence/validate`**
 - Validates batch evidence items against PR unified diff hunks.
+
+### 6. Claim Watch (Stalled Issue & "Cookie Licking" Triage)
+- **`GET /api/claim-watch/samples`**
+  - Returns list of pre-configured sample issues for instant demonstration.
+- **`POST /api/claim-watch/evaluate`**
+  - Accepts `{ issueUrl: string, inactivityThresholdDays?: number, demoMode?: boolean }`.
+  - Classifies issue activity as `ACTIVITY_DETECTED`, `NEEDS_CHECK_IN`, or `INSUFFICIENT_INFORMATION`.
+  - Generates a polite, editable check-in reminder with zero GitHub write operations.
