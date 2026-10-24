@@ -210,21 +210,21 @@ export const PRListArea: React.FC<PRListAreaProps> = ({
       </div>
 
       {/* Filter Tabs & Search Bar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2 border-t border-slate-800/60">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2 border-t border-[#202B24]">
         {/* Status Tabs */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0" role="tablist">
           <button
             role="tab"
             aria-selected={activeFilter === 'ALL'}
             onClick={() => setActiveFilter('ALL')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition flex items-center gap-1.5 ${
+            className={`px-2.5 py-1.5 rounded-md text-xs font-semibold whitespace-nowrap transition flex items-center gap-1.5 cursor-pointer ${
               activeFilter === 'ALL'
-                ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/40 shadow-sm'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+                ? 'bg-[#151C18] text-[#22C77A] border border-[#22C77A]/40 shadow-sm'
+                : 'text-[#A0ADA5] hover:text-[#F3F6F4] hover:bg-[#151C18] border border-transparent'
             }`}
           >
             <span>All PRs</span>
-            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-800 text-slate-300">
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-[#0B100E] text-[#A0ADA5] border border-[#202B24]">
               {counts.ALL}
             </span>
           </button>
@@ -233,15 +233,15 @@ export const PRListArea: React.FC<PRListAreaProps> = ({
             role="tab"
             aria-selected={activeFilter === 'ANALYZED'}
             onClick={() => setActiveFilter('ANALYZED')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition flex items-center gap-1.5 ${
+            className={`px-2.5 py-1.5 rounded-md text-xs font-semibold whitespace-nowrap transition flex items-center gap-1.5 cursor-pointer ${
               activeFilter === 'ANALYZED'
-                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm'
-                : 'text-slate-400 hover:text-emerald-300 hover:bg-slate-800/50'
+                ? 'bg-[#151C18] text-[#22C77A] border border-[#22C77A]/40 shadow-sm'
+                : 'text-[#A0ADA5] hover:text-[#22C77A] hover:bg-[#151C18] border border-transparent'
             }`}
           >
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+            <span className="h-1.5 w-1.5 rounded-full bg-[#22C77A]" />
             <span>Analyzed</span>
-            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-800 text-slate-300">
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-[#0B100E] text-[#A0ADA5] border border-[#202B24]">
               {counts.ANALYZED}
             </span>
           </button>
@@ -250,15 +250,15 @@ export const PRListArea: React.FC<PRListAreaProps> = ({
             role="tab"
             aria-selected={activeFilter === 'AWAITING_TRIAGE'}
             onClick={() => setActiveFilter('AWAITING_TRIAGE')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition flex items-center gap-1.5 ${
+            className={`px-2.5 py-1.5 rounded-md text-xs font-semibold whitespace-nowrap transition flex items-center gap-1.5 cursor-pointer ${
               activeFilter === 'AWAITING_TRIAGE'
-                ? 'bg-slate-700/40 text-slate-200 border border-slate-600 shadow-sm'
-                : 'text-slate-400 hover:text-slate-300 hover:bg-slate-800/50'
+                ? 'bg-[#151C18] text-[#F3F6F4] border border-[#202B24] shadow-sm'
+                : 'text-[#A0ADA5] hover:text-[#F3F6F4] hover:bg-[#151C18] border border-transparent'
             }`}
           >
-            <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
+            <span className="h-1.5 w-1.5 rounded-full bg-[#718078]" />
             <span>Awaiting Triage</span>
-            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-800 text-slate-300">
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-[#0B100E] text-[#A0ADA5] border border-[#202B24]">
               {counts.AWAITING_TRIAGE}
             </span>
           </button>
@@ -266,18 +266,18 @@ export const PRListArea: React.FC<PRListAreaProps> = ({
 
         {/* Search input */}
         <div className="relative w-full sm:w-72">
-          <Search className="h-3.5 w-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          <Search className="h-3.5 w-3.5 text-[#718078] absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search by title, author, file..."
-            className="w-full bg-slate-950/80 border border-slate-800 rounded-xl pl-9 pr-7 py-1.5 text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-indigo-500 transition"
+            className="w-full bg-[#080B0A] border border-[#202B24] rounded-lg pl-9 pr-7 py-1.5 text-xs text-[#F3F6F4] placeholder:text-[#718078] focus:outline-none focus:border-[#22C77A] transition"
           />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery('')}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 text-xs"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#718078] hover:text-[#F3F6F4] text-xs"
               title="Clear search"
             >
               ×
@@ -331,29 +331,29 @@ export const PRListArea: React.FC<PRListAreaProps> = ({
                   onToggleCustom(false);
                   onSelectSample(sample.id);
                 }}
-                className={`text-left p-3.5 sm:p-4 rounded-xl border transition-all duration-200 cursor-pointer flex flex-col gap-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
+                className={`text-left p-3.5 sm:p-4 rounded-xl border transition-all duration-200 cursor-pointer flex flex-col gap-3 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#22C77A] ${
                   isSelected
-                    ? 'border-indigo-500/70 bg-indigo-950/20 shadow-lg shadow-indigo-950/30 ring-1 ring-indigo-500/30'
-                    : 'border-slate-800/80 bg-slate-950/40 hover:border-slate-700 hover:bg-slate-950/70'
+                    ? 'border-[#22C77A]/60 bg-[#151C18] shadow-sm shadow-[#22C77A]/5 ring-1 ring-[#22C77A]/20'
+                    : 'border-[#202B24] bg-[#0B100E] hover:border-[#2E3E34] hover:bg-[#101613]'
                 }`}
               >
                 {/* Row Header: ID, Author, Linked Issue, Analysis Status Badge */}
                 <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-mono text-indigo-400 font-semibold text-[11px]">
+                    <span className="font-mono text-[#22C77A] font-semibold text-[11px]">
                       {sample.id}
                     </span>
-                    <span className="text-slate-600">•</span>
-                    <span className="text-slate-300 font-medium truncate">
+                    <span className="text-[#718078]">•</span>
+                    <span className="text-[#F3F6F4] font-medium truncate">
                       by @{sample.author}
                     </span>
                     {sample.authorAssociation && (
-                      <span className="px-1.5 py-0.2 rounded text-[10px] bg-slate-800/80 text-slate-400 border border-slate-700/60 hidden sm:inline">
+                      <span className="px-1.5 py-0.2 rounded text-[10px] bg-[#151C18] text-[#A0ADA5] border border-[#202B24] hidden sm:inline">
                         {sample.authorAssociation.replace(/_/g, ' ')}
                       </span>
                     )}
                     {sample.linkedIssue && (
-                      <span className="inline-flex items-center gap-1 text-emerald-400 text-[11px] font-medium">
+                      <span className="inline-flex items-center gap-1 text-[#22C77A] text-[11px] font-medium">
                         <LinkIcon className="h-3 w-3" />
                         {sample.linkedIssue}
                       </span>

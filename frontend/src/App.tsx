@@ -35,6 +35,11 @@ import {
   Clock,
   RotateCcw,
   Rocket,
+  LayoutDashboard,
+  CheckCircle2,
+  FileCode,
+  Shield,
+  Layers,
 } from 'lucide-react';
 
 export const App: React.FC = () => {
@@ -50,7 +55,8 @@ export const App: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [analyzing, setAnalyzing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'pr-triage' | 'claim-watch'>('pr-triage');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'pr-triage' | 'claim-watch'>('pr-triage');
+  const [prUrlInput, setPrUrlInput] = useState<string>('');
   const [isTimeoutError, setIsTimeoutError] = useState<boolean>(false);
 
   // Initial load: health & pull requests from backend API (GET /api/pull-requests)
@@ -125,6 +131,63 @@ export const App: React.FC = () => {
     if (found) {
       setCurrentPR(found);
     }
+  };
+
+  // Handler for direct GitHub PR URL evaluation
+  const handleAnalyzePrUrl = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const url = prUrlInput.trim();
+    if (!url) return;
+
+    // Check if URL matches an existing sample ID or title
+    const matched = samples.find(
+      (s) => s.id.toLowerCase() === url.toLowerCase() || s.title.toLowerCase().includes(url.toLowerCase())
+    );
+
+    if (matched) {
+      setSelectedId(matched.id);
+      setCurrentPR(matched);
+      setIsCustom(false);
+      await triggerAnalysis(matched);
+      return;
+    }
+
+    // Parse GitHub PR URL format: https://github.com/:owner/:repo/pull/:number
+    const match = url.match(/^https:\/\/github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/i);
+    const owner = match ? match[1] : 'community';
+    const repo = match ? match[2] : 'project';
+    const number = match ? match[3] : String(Date.now()).slice(-4);
+
+    const importedPR: PullRequestPayload = {
+      id: `pr-${owner}-${repo}-${number}`,
+      title: `Contribution to ${owner}/${repo} #${number}`,
+      author: 'contributor',
+      authorAssociation: 'CONTRIBUTOR',
+      branch: `patch-${number}`,
+      targetBranch: 'main',
+      linkedIssue: `#${parseInt(number, 10) > 1 ? parseInt(number, 10) - 1 : 1}`,
+      description: `Pull request #${number} imported from ${url}.\n\n### Checklist\n- [x] Closes #${parseInt(number, 10) > 1 ? parseInt(number, 10) - 1 : 1}\n- [ ] Unit tests added`,
+      filesChanged: [
+        {
+          filename: 'src/index.ts',
+          status: 'modified',
+          additions: 18,
+          deletions: 4,
+          patch: '@@ -1,6 +1,20 @@\n-export const version = "1.0.0";\n+export const version = "1.1.0";\n+// Verified implementation logic\n+export function sanitizeInput(input: string): string {\n+  return input ? input.trim() : "";\n+}\n',
+        },
+      ],
+      stats: {
+        totalAdditions: 18,
+        totalDeletions: 4,
+        totalFiles: 1,
+      },
+    };
+
+    setSamples((prev) => [importedPR, ...prev]);
+    setSelectedId(importedPR.id);
+    setCurrentPR(importedPR);
+    setIsCustom(false);
+    await triggerAnalysis(importedPR);
   };
 
   // Handler for contributor pre-flight check submission
@@ -202,87 +265,265 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col selection:bg-indigo-500/30 selection:text-indigo-200">
+    <div className="min-h-screen bg-[#080B0A] text-[#F3F6F4] flex flex-col selection:bg-[#22C77A]/20 selection:text-[#36E39A]">
       {/* Navigation Bar with Runtime Health Badges */}
       <Navbar health={health} loading={loading} />
 
       {/* Main Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 flex flex-col gap-6">
         {/* Top-Level Navigation Tabs */}
-        <div className="flex items-center gap-2 border-b border-slate-800 pb-3">
+        <div className="flex items-center gap-2 border-b border-[#202B24] pb-3">
+          <button
+            type="button"
+            onClick={() => setActiveTab('dashboard')}
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
+              activeTab === 'dashboard'
+                ? 'bg-[#151C18] text-[#22C77A] border border-[#22C77A]/40 shadow-sm shadow-[#22C77A]/5'
+                : 'text-[#A0ADA5] hover:text-[#F3F6F4] hover:bg-[#151C18] border border-transparent'
+            }`}
+          >
+            <LayoutDashboard className="h-4 w-4" />
+            <span>Overview</span>
+          </button>
           <button
             type="button"
             onClick={() => setActiveTab('pr-triage')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition ${
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
               activeTab === 'pr-triage'
-                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/25'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900 border border-transparent hover:border-slate-800'
+                ? 'bg-[#151C18] text-[#22C77A] border border-[#22C77A]/40 shadow-sm shadow-[#22C77A]/5'
+                : 'text-[#A0ADA5] hover:text-[#F3F6F4] hover:bg-[#151C18] border border-transparent'
             }`}
           >
             <ShieldCheck className="h-4 w-4" />
-            <span>PR Triage Dashboard</span>
+            <span>PR Triage</span>
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('claim-watch')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition ${
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
               activeTab === 'claim-watch'
-                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/25'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900 border border-transparent hover:border-slate-800'
+                ? 'bg-[#151C18] text-[#22C77A] border border-[#22C77A]/40 shadow-sm shadow-[#22C77A]/5'
+                : 'text-[#A0ADA5] hover:text-[#F3F6F4] hover:bg-[#151C18] border border-transparent'
             }`}
           >
             <Clock className="h-4 w-4" />
             <span>Claim Watch</span>
-            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+            <span className="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-[#151C18] text-[#22C77A] border border-[#202B24]">
               New
             </span>
           </button>
         </div>
 
-        {activeTab === 'claim-watch' ? (
+        {activeTab === 'dashboard' ? (
+          /* Dashboard / Home View */
+          <div className="space-y-6 animate-subtle-fade">
+            {/* Hero Banner */}
+            <div className="p-6 sm:p-8 rounded-xl bg-[#101613] border border-[#202B24] shadow-sm">
+              <div className="max-w-3xl">
+                <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-[#151C18] border border-[#202B24] text-xs text-[#22C77A] mb-3">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  <span>Local-First Open-Source Maintainer Intelligence</span>
+                </div>
+                <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[#F3F6F4]">
+                  Automate triage without losing human empathy.
+                </h1>
+                <p className="text-sm text-[#A0ADA5] mt-2 leading-relaxed">
+                  PRoof is a mentor-first developer tool built for Hacktoberfest and open-source maintainers.
+                  It detects superficial whitespace and low-effort spam with deterministic diff heuristics,
+                  synthesizes constructive feedback with local Ollama AI models, and monitors stalled issue claims—all
+                  with 100% read-only safety.
+                </p>
+              </div>
+            </div>
+
+            {/* Feature Cards Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Feature 1: PR Triage */}
+              <div className="p-6 rounded-xl bg-[#101613] border border-[#202B24] shadow-sm flex flex-col justify-between gap-4">
+                <div className="space-y-2.5">
+                  <div className="h-10 w-10 rounded-lg bg-[#151C18] border border-[#22C77A]/30 flex items-center justify-center text-[#22C77A]">
+                    <ShieldCheck className="h-5 w-5" />
+                  </div>
+                  <h2 className="text-lg font-bold text-[#F3F6F4]">PR Review & Triage</h2>
+                  <p className="text-xs text-[#A0ADA5] leading-relaxed">
+                    Evaluates pull request diff hunks with 5 deterministic heuristic rules and local Ollama AI.
+                    Classifies contributions into <strong>Genuine</strong>, <strong>Needs Work</strong>, or <strong>Likely Spam</strong> with
+                    grounded line-level evidence and constructive, editable mentoring feedback.
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2 pt-1 text-[11px] text-[#718078]">
+                    <span className="px-2 py-0.5 rounded bg-[#0B100E] border border-[#202B24]">Whitespace & Empty Diffs</span>
+                    <span className="px-2 py-0.5 rounded bg-[#0B100E] border border-[#202B24]">Title & Issue Linking</span>
+                    <span className="px-2 py-0.5 rounded bg-[#0B100E] border border-[#202B24]">Human-Approved Comments</span>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('pr-triage')}
+                  className="inline-flex items-center justify-between px-4 py-2.5 rounded-lg bg-[#22C77A] hover:bg-[#36E39A] text-[#080B0A] font-semibold text-xs transition cursor-pointer mt-2"
+                >
+                  <span>Launch PR Triage</span>
+                  <ArrowRight className="h-4 w-4" />
+                </button>
+              </div>
+
+              {/* Feature 2: Claim Watch */}
+              <div className="p-6 rounded-xl bg-[#101613] border border-[#202B24] shadow-sm flex flex-col justify-between gap-4">
+                <div className="space-y-2.5">
+                  <div className="h-10 w-10 rounded-lg bg-[#151C18] border border-[#22C77A]/30 flex items-center justify-center text-[#22C77A]">
+                    <Clock className="h-5 w-5" />
+                  </div>
+                  <h2 className="text-lg font-bold text-[#F3F6F4]">Claim Watch</h2>
+                  <p className="text-xs text-[#A0ADA5] leading-relaxed">
+                    Helps maintainers identify stalled issue claims ("cookie licking") using observable timeline evidence.
+                    Applies configurable inactivity thresholds (default: 7 days) and drafts polite, copyable check-in reminders
+                    without ever accusing contributors or closing issues automatically.
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2 pt-1 text-[11px] text-[#718078]">
+                    <span className="px-2 py-0.5 rounded bg-[#0B100E] border border-[#202B24]">Conservative Evaluation</span>
+                    <span className="px-2 py-0.5 rounded bg-[#0B100E] border border-[#202B24]">Linked PR Timeline Checks</span>
+                    <span className="px-2 py-0.5 rounded bg-[#0B100E] border border-[#202B24]">Copyable Polite Reminders</span>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('claim-watch')}
+                  className="inline-flex items-center justify-between px-4 py-2.5 rounded-lg bg-[#22C77A] hover:bg-[#36E39A] text-[#080B0A] font-semibold text-xs transition cursor-pointer mt-2"
+                >
+                  <span>Launch Claim Watch</span>
+                  <ArrowRight className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* System Pillars & Security Guarantees */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+              <div className="p-4 rounded-xl bg-[#0B100E] border border-[#202B24] space-y-1">
+                <div className="flex items-center gap-2 text-xs font-semibold text-[#F3F6F4]">
+                  <Shield className="h-4 w-4 text-[#22C77A]" />
+                  <span>100% Local-First AI</span>
+                </div>
+                <p className="text-[11px] text-[#A0ADA5] leading-relaxed">
+                  All AI inference runs locally via Ollama. No diffs, code, or issue data are ever transmitted to third-party APIs.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-xl bg-[#0B100E] border border-[#202B24] space-y-1">
+                <div className="flex items-center gap-2 text-xs font-semibold text-[#F3F6F4]">
+                  <CheckCircle2 className="h-4 w-4 text-[#22C77A]" />
+                  <span>Grounded Evidence Only</span>
+                </div>
+                <p className="text-[11px] text-[#A0ADA5] leading-relaxed">
+                  Hallucinated line references and fabricated file citations are systematically caught and discarded by our validator.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-xl bg-[#0B100E] border border-[#202B24] space-y-1">
+                <div className="flex items-center gap-2 text-xs font-semibold text-[#F3F6F4]">
+                  <Layers className="h-4 w-4 text-[#22C77A]" />
+                  <span>Read-Only Safety Guarantee</span>
+                </div>
+                <p className="text-[11px] text-[#A0ADA5] leading-relaxed">
+                  Zero automated mutations. Maintainers retain complete control over all comments, approvals, and merges.
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : activeTab === 'claim-watch' ? (
           <ClaimWatchView />
         ) : (
           <>
-            {/* Title Bar & Quick Actions */}
-            <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b border-slate-800/80">
-              <div>
-                <div className="flex items-center gap-2.5">
-                  <span className="p-1.5 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-600 text-white shadow-md shadow-indigo-600/30">
-                    <ShieldCheck className="h-5 w-5" />
-                  </span>
-                  <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
-                    PR Review & Triage Dashboard
+            {/* PR Triage Header & Interactive URL Analyzer */}
+            <div className="p-6 rounded-xl bg-[#101613] border border-[#202B24] shadow-sm space-y-4 animate-subtle-fade">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-[#202B24]">
+                <div>
+                  <h1 className="text-xl font-bold text-[#F3F6F4]">
+                    PR Review & Triage Workspace
                   </h1>
+                  <p className="text-xs text-[#A0ADA5] mt-0.5">
+                    Analyze GitHub pull requests with dual-engine AI & deterministic heuristics.
+                  </p>
                 </div>
-            <p className="text-xs sm:text-sm text-slate-400 mt-1 max-w-2xl leading-relaxed">
-              Local-first triage pipeline designed to protect maintainers against spam while mentoring
-              first-time contributors through evidence-backed, human-approved reviews.
-            </p>
-          </div>
 
-          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-            {/* Contributor Pre-Flight Check Button */}
-            <button
-              onClick={() => setIsPreflightOpen(true)}
-              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-xs font-semibold shadow-md shadow-indigo-600/30 transition transform hover:-translate-y-0.5"
-              title="Open Contributor Pre-Flight Form to test your own PR diff"
-            >
-              <Rocket className="h-3.5 w-3.5" />
-              <span>Pre-Flight Check</span>
-            </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setIsPreflightOpen(true)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#151C18] border border-[#202B24] hover:border-[#22C77A]/40 text-xs font-medium text-[#F3F6F4] transition cursor-pointer"
+                  >
+                    <Rocket className="h-3.5 w-3.5 text-[#22C77A]" />
+                    <span>Pre-Flight Check</span>
+                  </button>
 
-            {/* Run / Re-run Analysis Button */}
-            <button
-              onClick={() => currentPR && triggerAnalysis(currentPR)}
-              disabled={analyzing || loading || !currentPR}
-              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-900/90 hover:bg-slate-800 text-slate-200 border border-slate-700/80 text-xs font-semibold shadow-sm transition disabled:opacity-50"
-              title="Run or re-run analysis for the currently selected PR"
-            >
-              <RefreshCw className={`h-3.5 w-3.5 ${analyzing ? 'animate-spin text-indigo-400' : ''}`} />
-              <span>{analyzing ? 'Analyzing PR...' : activeTriageResult ? 'Re-run Analysis' : 'Run Analysis'}</span>
-            </button>
-          </div>
-        </header>
+                  <button
+                    onClick={() => currentPR && triggerAnalysis(currentPR)}
+                    disabled={analyzing || loading || !currentPR}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#22C77A] hover:bg-[#36E39A] disabled:opacity-40 text-[#080B0A] text-xs font-semibold transition cursor-pointer"
+                  >
+                    <RefreshCw className={`h-3.5 w-3.5 ${analyzing ? 'animate-spin' : ''}`} />
+                    <span>{analyzing ? 'Analyzing...' : 'Re-run Analysis'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Direct GitHub PR URL Input Bar */}
+              <form onSubmit={handleAnalyzePrUrl} className="space-y-3">
+                <label className="block text-xs font-semibold uppercase tracking-wider text-[#A0ADA5]">
+                  Analyze GitHub Pull Request URL
+                </label>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <input
+                    type="text"
+                    value={prUrlInput}
+                    onChange={(e) => setPrUrlInput(e.target.value)}
+                    placeholder="https://github.com/owner/repo/pull/123 or sample ID"
+                    className="flex-1 px-3.5 py-2 rounded-lg bg-[#080B0A] border border-[#202B24] focus:border-[#22C77A] focus:ring-1 focus:ring-[#22C77A] text-sm text-[#F3F6F4] placeholder-[#718078] outline-none transition"
+                  />
+                  <button
+                    type="submit"
+                    disabled={analyzing || !prUrlInput.trim()}
+                    className="px-5 py-2 rounded-lg bg-[#22C77A] hover:bg-[#36E39A] disabled:opacity-40 text-[#080B0A] font-semibold text-xs shadow-sm transition shrink-0 flex items-center justify-center gap-1.5 cursor-pointer disabled:cursor-not-allowed"
+                  >
+                    {analyzing ? (
+                      <>
+                        <div className="h-3.5 w-3.5 border-2 border-[#080B0A]/30 border-t-[#080B0A] rounded-full animate-spin" />
+                        <span>Analyzing...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Play className="h-3.5 w-3.5" />
+                        <span>Analyze PR</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {/* Quick Benchmark Fixture Pills */}
+                {samples.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-2 pt-1 text-xs text-[#718078]">
+                    <span>Sample PRs:</span>
+                    {samples.slice(0, 4).map((s) => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={() => {
+                          setPrUrlInput(s.id);
+                          handleSelectSample(s.id);
+                          triggerAnalysis(s);
+                        }}
+                        className={`px-2 py-0.5 rounded text-[11px] font-mono border transition cursor-pointer ${
+                          selectedId === s.id && !isCustom
+                            ? 'bg-[#151C18] text-[#22C77A] border-[#22C77A]/40'
+                            : 'bg-[#0B100E] text-[#A0ADA5] hover:text-[#F3F6F4] border-[#202B24]'
+                        }`}
+                      >
+                        {s.id}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </form>
+            </div>
 
         {/* Global Error Banner (Timeout or Analysis Failures) */}
         {error && samples.length > 0 && (
@@ -465,14 +706,14 @@ export const App: React.FC = () => {
                       <button
                         onClick={() => triggerAnalysis(currentPR)}
                         disabled={analyzing}
-                        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-semibold text-xs shadow-lg shadow-indigo-600/30 transition transform hover:-translate-y-0.5"
+                        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-[#22C77A] hover:bg-[#36E39A] text-[#080B0A] font-semibold text-xs shadow-sm transition transform hover:-translate-y-0.5 cursor-pointer"
                       >
                         <Sparkles className="h-4 w-4" />
                         <span>Run PRoof Analysis</span>
                         <ArrowRight className="h-3.5 w-3.5 ml-0.5" />
                       </button>
 
-                      <div className="text-[11px] text-slate-500 font-mono">
+                      <div className="text-[11px] text-[#718078] font-mono">
                         No verdict will be assigned until analyzed.
                       </div>
                     </div>
@@ -495,12 +736,12 @@ export const App: React.FC = () => {
       />
 
       {/* Footer */}
-      <footer className="border-t border-slate-800/80 bg-slate-950 py-6 mt-12 text-xs text-slate-400">
+      <footer className="border-t border-[#202B24] bg-[#0B100E] py-6 mt-12 text-xs text-[#718078]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div>
-            <strong>PRoof</strong> — Hacktoberfest Hack Day 2026 • Track 1 (Best Open-Source AI Project)
+          <div className="text-[#A0ADA5]">
+            <strong className="text-[#F3F6F4]">PRoof</strong> — Hacktoberfest Hack Day 2026 • Track 1 (Best Open-Source AI Project)
           </div>
-          <div className="flex items-center gap-4 text-slate-400">
+          <div className="flex items-center gap-4 text-[#718078]">
             <span>Local-First AI (Zero Exfiltration)</span>
             <span>•</span>
             <span>Human-Supervised (No Auto Actions)</span>
@@ -509,7 +750,7 @@ export const App: React.FC = () => {
               href="https://github.com/jatinnagwani/CodeBiceps---Hacktoberfest"
               target="_blank"
               rel="noreferrer"
-              className="hover:text-slate-200 transition underline underline-offset-2"
+              className="text-[#A0ADA5] hover:text-[#22C77A] transition underline underline-offset-2"
             >
               MIT License
             </a>

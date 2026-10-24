@@ -90,31 +90,31 @@ export const CommentApprovalCard: React.FC<CommentApprovalCardProps> = ({
   return (
     <section
       aria-label="Maintainer Review Comment Approval"
-      className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 sm:p-5 backdrop-blur-sm shadow-xl flex flex-col gap-4"
+      className="bg-[#101613] border border-[#202B24] rounded-xl p-4 sm:p-5 shadow-sm flex flex-col gap-4 animate-subtle-fade"
     >
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-800">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-[#202B24]">
         <div className="flex items-center gap-2">
-          <MessageSquare className="h-5 w-5 text-indigo-400" />
-          <h2 className="text-base font-bold text-slate-100">
+          <MessageSquare className="h-4 w-4 text-[#22C77A]" />
+          <h2 className="text-sm font-bold text-[#F3F6F4]">
             Mentoring Review Comment Draft
           </h2>
         </div>
 
         <div className="flex items-center gap-2">
           {isEdited ? (
-            <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
+            <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-[#151C18] text-[#22C77A] border border-[#22C77A]/40">
               Edited by Maintainer
             </span>
           ) : (
-            <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-slate-800 text-slate-400 border border-slate-700">
+            <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-[#0B100E] text-[#A0ADA5] border border-[#202B24]">
               Original Draft
             </span>
           )}
 
           {suggestedComment.tone && (
             <span
-              className={`px-2 py-0.5 rounded-md text-[11px] font-semibold border ${getToneBadge(
+              className={`px-2 py-0.5 rounded text-[10px] font-semibold border ${getToneBadge(
                 suggestedComment.tone
               )}`}
             >
@@ -125,18 +125,18 @@ export const CommentApprovalCard: React.FC<CommentApprovalCardProps> = ({
       </div>
 
       {/* Explicit Safety & Zero-Publishing Guarantee */}
-      <div className="p-3 rounded-xl bg-slate-950/70 border border-slate-800 text-xs text-slate-300 flex items-start gap-2.5">
-        <Info className="h-4 w-4 text-indigo-400 shrink-0 mt-0.5" />
-        <p className="leading-relaxed">
-          <strong className="text-slate-100">Local-Only Approval Guarantee:</strong> PRoof runs entirely offline. Approving this review updates the local UI and records it in your current session. <em>No comment is posted to GitHub, and no automatic merge/close actions are ever executed.</em>
+      <div className="p-3 rounded-lg bg-[#0B100E] border border-[#202B24] text-xs text-[#A0ADA5] flex items-start gap-2.5">
+        <Info className="h-4 w-4 text-[#22C77A] shrink-0 mt-0.5" />
+        <p className="leading-relaxed text-[11px]">
+          <strong className="text-[#F3F6F4]">Local-Only Approval Guarantee:</strong> PRoof runs entirely offline. Approving this review updates the local UI and records it in your current session. <em>No comment is posted to GitHub, and no automatic merge/close actions are ever executed.</em>
         </p>
       </div>
 
       {/* Editable Comment Draft Box */}
       <div>
         <div className="flex items-center justify-between mb-1.5 text-xs">
-          <label className="font-semibold text-slate-300 flex items-center gap-1.5">
-            <Edit3 className="h-3.5 w-3.5 text-slate-400" />
+          <label className="font-semibold text-[#A0ADA5] flex items-center gap-1.5">
+            <Edit3 className="h-3.5 w-3.5 text-[#718078]" />
             <span>Review Comment (Editable Markdown)</span>
           </label>
 
@@ -145,7 +145,7 @@ export const CommentApprovalCard: React.FC<CommentApprovalCardProps> = ({
               <button
                 type="button"
                 onClick={handleReset}
-                className="text-slate-400 hover:text-slate-200 transition flex items-center gap-1 font-medium"
+                className="text-[#A0ADA5] hover:text-[#F3F6F4] transition flex items-center gap-1 font-medium cursor-pointer"
                 title="Reset text to original generated draft"
               >
                 <RotateCcw className="h-3 w-3" />
@@ -156,12 +156,12 @@ export const CommentApprovalCard: React.FC<CommentApprovalCardProps> = ({
             <button
               type="button"
               onClick={handleCopy}
-              className="text-slate-400 hover:text-slate-200 transition flex items-center gap-1 font-medium"
+              className="text-[#A0ADA5] hover:text-[#F3F6F4] transition flex items-center gap-1 font-medium cursor-pointer"
             >
               {copied ? (
                 <>
-                  <Check className="h-3 w-3 text-emerald-400" />
-                  <span className="text-emerald-400">Copied!</span>
+                  <Check className="h-3 w-3 text-[#22C77A]" />
+                  <span className="text-[#22C77A]">Copied!</span>
                 </>
               ) : (
                 <>
@@ -181,10 +181,10 @@ export const CommentApprovalCard: React.FC<CommentApprovalCardProps> = ({
             if (approvalRecord) setApprovalRecord(null);
           }}
           rows={6}
-          className="w-full bg-slate-950/80 border border-slate-700/80 rounded-xl p-3.5 text-xs text-slate-200 font-mono leading-relaxed focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/50"
+          className="w-full bg-[#080B0A] border border-[#202B24] rounded-lg p-3 text-xs text-[#F3F6F4] font-mono leading-relaxed focus:outline-none focus:border-[#22C77A] focus:ring-1 focus:ring-[#22C77A]"
           placeholder="Edit mentoring review comment..."
         />
-        <div className="mt-1 text-right text-[11px] text-slate-500 font-mono">
+        <div className="mt-1 text-right text-[11px] text-[#718078] font-mono">
           {commentText.length} characters • {commentText.split('\n').length} lines
         </div>
       </div>
@@ -192,13 +192,13 @@ export const CommentApprovalCard: React.FC<CommentApprovalCardProps> = ({
       {/* Maintainer Action & Notes */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
-          <label className="text-xs font-semibold text-slate-300 block mb-1">
+          <label className="text-xs font-semibold text-[#A0ADA5] block mb-1">
             Maintainer Action
           </label>
           <select
             value={action}
             onChange={(e) => setAction(e.target.value as ReviewAction)}
-            className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 font-medium"
+            className="w-full bg-[#080B0A] border border-[#202B24] rounded-lg px-3 py-2 text-xs text-[#F3F6F4] focus:outline-none focus:border-[#22C77A] font-medium"
           >
             <option value="COMMENT_ONLY">Comment Only (Mentoring Feedback)</option>
             <option value="REQUEST_CHANGES">Request Changes (Needs Revisions)</option>
@@ -207,34 +207,34 @@ export const CommentApprovalCard: React.FC<CommentApprovalCardProps> = ({
         </div>
 
         <div>
-          <label className="text-xs font-semibold text-slate-300 block mb-1">
+          <label className="text-xs font-semibold text-[#A0ADA5] block mb-1">
             Maintainer Internal Notes (Optional)
           </label>
           <input
             type="text"
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+            className="w-full bg-[#080B0A] border border-[#202B24] rounded-lg px-3 py-2 text-xs text-[#F3F6F4] focus:outline-none focus:border-[#22C77A]"
             placeholder="e.g. Good candidate for first-timers badge"
           />
         </div>
       </div>
 
       {/* Approval Trigger Button */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-slate-800/80">
-        <div className="text-[11px] text-slate-400 font-mono">
-          Target PR: <span className="text-slate-200 font-semibold">{prId}</span>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-[#202B24]">
+        <div className="text-[11px] text-[#718078] font-mono">
+          Target PR: <span className="text-[#F3F6F4] font-semibold">{prId}</span>
         </div>
 
         <button
           type="button"
           onClick={handleApprove}
           disabled={submitting || !commentText.trim()}
-          className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-semibold text-xs shadow-lg shadow-indigo-600/30 hover:from-indigo-500 hover:to-violet-500 transition disabled:opacity-50 disabled:cursor-not-allowed"
+          className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-[#22C77A] hover:bg-[#36E39A] text-[#080B0A] font-semibold text-xs shadow-sm transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
         >
           {submitting ? (
             <>
-              <div className="h-3.5 w-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              <div className="h-3.5 w-3.5 border-2 border-[#080B0A]/30 border-t-[#080B0A] rounded-full animate-spin" />
               <span>Verifying & Recording Approval...</span>
             </>
           ) : (
@@ -251,21 +251,21 @@ export const CommentApprovalCard: React.FC<CommentApprovalCardProps> = ({
         <div
           role="status"
           aria-live="polite"
-          className="p-4 rounded-xl bg-emerald-950/40 border border-emerald-500/40 text-xs text-emerald-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in duration-300 shadow-md"
+          className="p-3.5 rounded-lg bg-[#151C18] border border-[#22C77A]/40 text-xs text-[#F3F6F4] flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-subtle-fade shadow-sm"
         >
           <div className="flex items-start gap-2.5">
-            <CheckCircle2 className="h-5 w-5 text-emerald-400 shrink-0 mt-0.5 sm:mt-0" />
+            <CheckCircle2 className="h-4 w-4 text-[#22C77A] shrink-0 mt-0.5" />
             <div>
-              <span className="font-bold text-emerald-100 text-sm">
+              <span className="font-bold text-[#F3F6F4] text-xs">
                 Review Draft Approved Locally!
               </span>
-              <p className="mt-0.5 text-emerald-300/90 leading-relaxed">
-                Confirmation: This review draft was verified and recorded in your local session (ID: <span className="font-mono font-semibold">{approvalRecord.approvalId}</span>). No comment was published to GitHub.
+              <p className="mt-0.5 text-[#A0ADA5] text-[11px] leading-relaxed">
+                Confirmation: This review draft was verified and recorded in your local session (ID: <span className="font-mono font-semibold text-[#22C77A]">{approvalRecord.approvalId}</span>). No comment was published to GitHub.
               </p>
             </div>
           </div>
 
-          <div className="self-end sm:self-auto shrink-0 font-mono text-[11px] text-emerald-400 bg-emerald-950 px-2 py-1 rounded border border-emerald-600/40">
+          <div className="self-end sm:self-auto shrink-0 font-mono text-[10px] text-[#22C77A] bg-[#0B100E] px-2 py-0.5 rounded border border-[#202B24]">
             Action: {approvalRecord.actionTaken}
           </div>
         </div>

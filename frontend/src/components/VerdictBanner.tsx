@@ -31,28 +31,28 @@ export const VerdictBanner: React.FC<VerdictBannerProps> = ({
         return {
           title: 'Genuine Contribution',
           subtitle: 'Substantive changes with constructive context and test validation.',
-          icon: <ShieldCheck className="h-6 w-6 sm:h-7 sm:w-7 text-emerald-400" />,
-          cardBg: 'bg-emerald-950/25 border-emerald-500/40',
-          badgeBg: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
-          glow: 'shadow-emerald-950/40',
+          icon: <ShieldCheck className="h-5 w-5 sm:h-6 sm:w-6 text-[#22C77A]" />,
+          cardBg: 'bg-[#101613] border-[#22C77A]/40',
+          badgeBg: 'bg-[#151C18] text-[#22C77A] border-[#22C77A]/30',
+          glow: 'shadow-sm shadow-[#22C77A]/5',
         };
       case 'NEEDS_WORK':
         return {
           title: 'Needs Work',
           subtitle: 'Well-intentioned contribution requiring tests, issue linking, or implementation refinement.',
-          icon: <HelpCircle className="h-6 w-6 sm:h-7 sm:w-7 text-amber-400" />,
-          cardBg: 'bg-amber-950/25 border-amber-500/40',
-          badgeBg: 'bg-amber-500/20 text-amber-300 border-amber-500/40',
-          glow: 'shadow-amber-950/40',
+          icon: <HelpCircle className="h-5 w-5 sm:h-6 sm:w-6 text-amber-400" />,
+          cardBg: 'bg-[#101613] border-amber-500/40',
+          badgeBg: 'bg-[#151C18] text-amber-300 border-amber-500/30',
+          glow: 'shadow-sm shadow-amber-950/20',
         };
       case 'LIKELY_SPAM':
         return {
           title: 'Likely Spam / Low Effort',
           subtitle: 'Identified superficial formatting, whitespace adjustments, or changes without substance.',
-          icon: <ShieldAlert className="h-6 w-6 sm:h-7 sm:w-7 text-rose-400" />,
-          cardBg: 'bg-rose-950/25 border-rose-500/40',
-          badgeBg: 'bg-rose-500/20 text-rose-300 border-rose-500/40',
-          glow: 'shadow-rose-950/40',
+          icon: <ShieldAlert className="h-5 w-5 sm:h-6 sm:w-6 text-rose-400" />,
+          cardBg: 'bg-[#101613] border-rose-500/40',
+          badgeBg: 'bg-[#151C18] text-rose-300 border-rose-500/30',
+          glow: 'shadow-sm shadow-rose-950/20',
         };
     }
   };
@@ -60,22 +60,22 @@ export const VerdictBanner: React.FC<VerdictBannerProps> = ({
   const getConfidenceBadge = (c: Confidence) => {
     switch (c) {
       case 'HIGH':
-        return 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30';
+        return 'bg-[#151C18] text-[#22C77A] border-[#22C77A]/30';
       case 'MEDIUM':
-        return 'bg-sky-500/15 text-sky-300 border-sky-500/30';
+        return 'bg-[#151C18] text-amber-300 border-amber-500/30';
       case 'LOW':
-        return 'bg-slate-700/60 text-slate-300 border-slate-600';
+        return 'bg-[#151C18] text-[#A0ADA5] border-[#202B24]';
     }
   };
 
   const getSeverityBadge = (severity: string) => {
     switch (severity) {
       case 'SUPPORTING':
-        return 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30';
+        return 'bg-[#151C18] text-[#22C77A] border-[#22C77A]/30';
       case 'CONCERN':
-        return 'bg-rose-500/15 text-rose-300 border-rose-500/30';
+        return 'bg-[#151C18] text-rose-400 border-rose-500/30';
       default:
-        return 'bg-slate-800 text-slate-300 border-slate-700';
+        return 'bg-[#151C18] text-[#A0ADA5] border-[#202B24]';
     }
   };
 
@@ -166,23 +166,23 @@ export const VerdictBanner: React.FC<VerdictBannerProps> = ({
       )}
 
       {/* Summary Box */}
-      <div className="bg-slate-950/60 border border-white/5 rounded-xl p-3 sm:p-3.5">
-        <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1.5">
-          <MessageSquareText className="h-3.5 w-3.5 text-indigo-400" />
+      <div className="bg-[#0B100E] border border-[#202B24] rounded-lg p-3 sm:p-3.5">
+        <h3 className="text-xs font-semibold text-[#A0ADA5] uppercase tracking-wider mb-1 flex items-center gap-1.5">
+          <MessageSquareText className="h-3.5 w-3.5 text-[#22C77A]" />
           Executive Summary
         </h3>
-        <p className="text-xs sm:text-sm text-slate-200 leading-relaxed font-medium">
+        <p className="text-xs sm:text-sm text-[#F3F6F4] leading-relaxed font-medium">
           {result.summary}
         </p>
       </div>
 
       {/* Concise Reasoning */}
       {result.reasoning && (
-        <div className="bg-slate-950/40 border border-slate-800/80 rounded-xl p-3 sm:p-3.5">
-          <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">
+        <div className="bg-[#0B100E] border border-[#202B24] rounded-lg p-3 sm:p-3.5">
+          <h3 className="text-xs font-semibold text-[#A0ADA5] uppercase tracking-wider mb-1">
             Concise Reasoning
           </h3>
-          <p className="text-xs text-slate-300 leading-relaxed">
+          <p className="text-xs text-[#A0ADA5] leading-relaxed">
             {result.reasoning}
           </p>
         </div>
@@ -190,18 +190,18 @@ export const VerdictBanner: React.FC<VerdictBannerProps> = ({
 
       {/* Supporting Evidence List (Linked to Supplied Diff) */}
       <div>
-        <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 flex items-center justify-between">
+        <h3 className="text-xs font-semibold text-[#A0ADA5] uppercase tracking-wider mb-2 flex items-center justify-between">
           <span className="flex items-center gap-1.5">
-            <FileCheck className="h-3.5 w-3.5 text-indigo-400" />
+            <FileCheck className="h-3.5 w-3.5 text-[#22C77A]" />
             Verified Evidence Citations ({result.evidence.length})
           </span>
-          <span className="text-[10px] text-slate-500 font-normal">
+          <span className="text-[10px] text-[#718078] font-normal">
             Click citation to jump to diff
           </span>
         </h3>
 
         {result.evidence.length === 0 ? (
-          <div className="p-3 text-center text-xs text-slate-500 rounded-lg bg-slate-950/30 border border-slate-800/60">
+          <div className="p-3 text-center text-xs text-[#718078] rounded-lg bg-[#0B100E] border border-[#202B24]">
             No specific diff citations flagged. Verdict synthesized from overall heuristic metrics.
           </div>
         ) : (
@@ -209,12 +209,12 @@ export const VerdictBanner: React.FC<VerdictBannerProps> = ({
             {result.evidence.map((ev) => (
               <div
                 key={ev.id}
-                className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 rounded-xl bg-slate-950/50 border border-white/5 text-xs hover:border-slate-700/80 transition"
+                className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 rounded-lg bg-[#0B100E] border border-[#202B24] text-xs hover:border-[#2E3E34] transition"
               >
                 <div className="flex items-start gap-2.5 min-w-0 flex-1">
-                  <Tag className="h-3.5 w-3.5 text-slate-400 mt-0.5 shrink-0" />
+                  <Tag className="h-3.5 w-3.5 text-[#718078] mt-0.5 shrink-0" />
                   <div className="min-w-0 flex-1">
-                    <span className="text-slate-200 font-medium">
+                    <span className="text-[#F3F6F4] font-medium">
                       {ev.description}
                     </span>
                   </div>
@@ -235,13 +235,13 @@ export const VerdictBanner: React.FC<VerdictBannerProps> = ({
                     <button
                       type="button"
                       onClick={() => onHighlightDiff?.(ev.file!, ev.lineRange)}
-                      className="inline-flex items-center gap-1.5 font-mono text-[11px] text-indigo-300 hover:text-white bg-indigo-950/60 hover:bg-indigo-900/80 px-2 py-0.5 rounded-lg border border-indigo-700/60 transition shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-indigo-400"
+                      className="inline-flex items-center gap-1.5 font-mono text-[11px] text-[#22C77A] hover:text-[#36E39A] bg-[#151C18] px-2 py-0.5 rounded-md border border-[#22C77A]/30 transition shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#22C77A]"
                       title={`Jump to ${ev.file} ${ev.lineRange || ''} in diff viewer`}
                     >
-                      <FileCode className="h-3 w-3 text-indigo-400" />
+                      <FileCode className="h-3 w-3 text-[#22C77A]" />
                       <span className="truncate max-w-[150px]">{ev.file.split('/').pop()}</span>
-                      {ev.lineRange && <span className="text-indigo-400 font-semibold">{ev.lineRange}</span>}
-                      <ExternalLink className="h-2.5 w-2.5 text-indigo-400" />
+                      {ev.lineRange && <span className="text-[#22C77A] font-semibold">{ev.lineRange}</span>}
+                      <ExternalLink className="h-2.5 w-2.5 text-[#22C77A]" />
                     </button>
                   )}
                 </div>
@@ -252,7 +252,7 @@ export const VerdictBanner: React.FC<VerdictBannerProps> = ({
       </div>
 
       {/* Advisory Epistemic Disclaimer */}
-      <div className="pt-2 border-t border-white/5 flex items-center justify-between text-[11px] text-slate-500">
+      <div className="pt-2 border-t border-[#202B24] flex items-center justify-between text-[11px] text-[#718078]">
         <span>Advisory verdict for maintainer reference</span>
         <span>Human review required before action</span>
       </div>

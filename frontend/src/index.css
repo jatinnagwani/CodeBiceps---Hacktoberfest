@@ -1,14 +1,73 @@
 @import "tailwindcss";
 
+@theme {
+  --color-bg-base: #080B0A;
+  --color-bg-sidebar: #0B100E;
+  --color-bg-card: #101613;
+  --color-bg-elevated: #151C18;
+  --color-border-subtle: #202B24;
+  --color-border-hover: #2E3E34;
+  --color-text-primary: #F3F6F4;
+  --color-text-secondary: #A0ADA5;
+  --color-text-muted: #718078;
+  --color-jungle-green: #22C77A;
+  --color-bright-green: #36E39A;
+}
+
+:root {
+  --bg-base: #080B0A;
+  --bg-sidebar: #0B100E;
+  --bg-card: #101613;
+  --bg-elevated: #151C18;
+  --border-subtle: #202B24;
+  --text-primary: #F3F6F4;
+  --text-secondary: #A0ADA5;
+  --text-muted: #718078;
+  --jungle-green: #22C77A;
+  --bright-green: #36E39A;
+}
+
 @layer base {
   * {
-    border-color: rgba(255, 255, 255, 0.08);
+    border-color: #202B24;
   }
   body {
+    background-color: #080B0A;
+    color: #F3F6F4;
     font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   }
   code, pre, kbd, .font-mono {
     font-family: 'JetBrains Mono', monospace;
+  }
+}
+
+/* Restrained animations respecting prefers-reduced-motion */
+@media (prefers-reduced-motion: no-preference) {
+  .animate-subtle-fade {
+    animation: fadeIn 220ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+  .animate-pulse-subtle {
+    animation: pulseSubtle 2.5s ease-in-out infinite;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulseSubtle {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.65;
   }
 }
 
@@ -18,12 +77,12 @@
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: rgba(15, 23, 42, 0.6);
+  background: #080B0A;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(100, 116, 139, 0.3);
+  background: #202B24;
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(100, 116, 139, 0.6);
+  background: #2E3E34;
 }
