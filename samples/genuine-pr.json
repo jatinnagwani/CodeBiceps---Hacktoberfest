@@ -1,0 +1,33 @@
+{
+  "id": "sample-genuine-01",
+  "category": "GENUINE",
+  "title": "fix(auth): prevent session timeout race condition during token refresh",
+  "author": "sarah-codes",
+  "authorAssociation": "FIRST_TIME_CONTRIBUTOR",
+  "createdAt": "2026-10-24T14:30:00Z",
+  "branch": "fix/session-race-condition",
+  "targetBranch": "main",
+  "linkedIssue": "#142",
+  "description": "### Problem\nWhen multiple concurrent HTTP requests trigger token refresh simultaneously, duplicate refresh tokens were being sent to the authorization server, causing premature session invalidation and logging users out.\n\n### Solution\n- Added an in-flight refresh promise mutex in `SessionManager` so all concurrent callers await the same refresh cycle.\n- Cleared the pending promise in a `finally` block.\n- Added comprehensive unit tests simulating 5 concurrent requests sharing one refresh call.\n\n### Checklist\n- [x] Closes #142\n- [x] Tests added and passing\n- [x] Follows repository code style conventions",
+  "filesChanged": [
+    {
+      "filename": "src/auth/session-manager.ts",
+      "status": "modified",
+      "additions": 18,
+      "deletions": 4,
+      "patch": "@@ -24,8 +24,14 @@ export class SessionManager {\n   private currentToken: string | null = null;\n   private tokenExpiry: number = 0;\n+  private refreshPromise: Promise<string> | null = null;\n \n   async getValidToken(): Promise<string> {\n-    if (Date.now() >= this.tokenExpiry) {\n-      return this.refreshToken();\n+    if (Date.now() < this.tokenExpiry && this.currentToken) {\n+      return this.currentToken;\n+    }\n+\n+    if (this.refreshPromise) {\n+      return this.refreshPromise;\n     }\n-    return this.currentToken;\n+    \n+    this.refreshPromise = this.refreshToken().finally(() => {\n+      this.refreshPromise = null;\n+    });\n+    return this.refreshPromise;\n   }"
+    },
+    {
+      "filename": "tests/auth/session-manager.test.ts",
+      "status": "modified",
+      "additions": 34,
+      "deletions": 0,
+      "patch": "@@ -88,3 +88,37 @@ describe('SessionManager', () => {\n     expect(token).toBe('mock-token-123');\n   });\n+\n+  it('deduplicates simultaneous token refresh calls without multiple network requests', async () => {\n+    const mockApi = vi.fn().mockImplementation(async () => {\n+      await new Promise((r) => setTimeout(r, 50));\n+      return { token: 'refreshed-token', expiresIn: 3600 };\n+    });\n+\n+    const manager = new SessionManager({ fetchToken: mockApi });\n+    // Fire 5 concurrent requests\n+    const results = await Promise.all([\n+      manager.getValidToken(),\n+      manager.getValidToken(),\n+      manager.getValidToken(),\n+      manager.getValidToken(),\n+      manager.getValidToken(),\n+    ]);\n+\n+    expect(mockApi).toHaveBeenCalledTimes(1);\n+    expect(results).toEqual(Array(5).fill('refreshed-token'));\n+  });\n });"
+    }
+  ],
+  "stats": {
+    "totalAdditions": 52,
+    "totalDeletions": 4,
+    "totalFiles": 2
+  }
+}

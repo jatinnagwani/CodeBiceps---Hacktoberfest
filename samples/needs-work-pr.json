@@ -1,0 +1,26 @@
+{
+  "id": "sample-needs-work-02",
+  "category": "NEEDS_WORK",
+  "title": "Add in-memory rate limiter middleware for incoming requests",
+  "author": "alex-coder-99",
+  "authorAssociation": "FIRST_TIME_CONTRIBUTOR",
+  "createdAt": "2026-10-24T16:15:00Z",
+  "branch": "feature/rate-limiter",
+  "targetBranch": "main",
+  "linkedIssue": null,
+  "description": "I added rate limiting to protect API routes from flooding. Hope this helps the project!\n\n### Checklist\n- [ ] Closes issue #\n- [ ] Unit tests added\n- [x] Code compiled locally",
+  "filesChanged": [
+    {
+      "filename": "src/middleware/rate-limiter.ts",
+      "status": "added",
+      "additions": 28,
+      "deletions": 0,
+      "patch": "@@ -0,0 +1,28 @@\n+import { Request, Response, NextFunction } from 'express';\n+\n+// Store IP hit counts\n+const ipHits = new Map<string, number>();\n+const MAX_REQUESTS = 100;\n+\n+export function simpleRateLimiter(req: Request, res: Response, next: NextFunction) {\n+  const clientIp = req.ip || 'unknown';\n+  const count = ipHits.get(clientIp) || 0;\n+\n+  if (count >= MAX_REQUESTS) {\n+    return res.status(429).json({\n+      error: 'Too many requests, please try again later.'\n+    });\n+  }\n+\n+  ipHits.set(clientIp, count + 1);\n+  next();\n+}"
+    }
+  ],
+  "stats": {
+    "totalAdditions": 28,
+    "totalDeletions": 0,
+    "totalFiles": 1
+  }
+}
