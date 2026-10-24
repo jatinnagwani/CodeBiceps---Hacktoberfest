@@ -1,5 +1,7 @@
 import { Router, Request, Response } from 'express';
+import { z } from 'zod';
 import {
+  PullRequestSchema,
   PullRequestPayloadSchema,
   ReviewApprovalRequestSchema,
   HealthStatusResponse,
@@ -43,31 +45,43 @@ triageRouter.get('/health', async (_req: Request, res: Response) => {
 });
 
 /**
- * GET /api/samples
- * GET /api/pull-requests (alias)
+ * GET /api/pull-requests
+ * GET /api/samples (alias)
  * Returns list of local sample PRs for demonstration.
+ * Validates output against PullRequestSchema.
  */
-const getSamplesHandler = (_req: Request, res: Response) => {
-  const samples = defaultSampleStore.getAllSamples();
-  res.json(samples);
+const getPullRequestsHandler = (_req: Request, res: Response) => {
+  try {
+    const samples = defaultSampleStore.getAllSamples();
+    const validated = z.array(PullRequestPayloadSchema).parse(samples);
+    res.json(validated);
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to serialize pull requests', details: err.message });
+  }
 };
-triageRouter.get('/samples', getSamplesHandler);
-triageRouter.get('/pull-requests', getSamplesHandler);
+triageRouter.get('/pull-requests', getPullRequestsHandler);
+triageRouter.get('/samples', getPullRequestsHandler);
 
 /**
- * GET /api/samples/:id
- * GET /api/pull-requests/:id (alias)
+ * GET /api/pull-requests/:id
+ * GET /api/samples/:id (alias)
  * Returns a specific sample PR by ID.
+ * Validates output against PullRequestPayloadSchema.
  */
-const getSampleByIdHandler = (req: Request, res: Response) => {
+const getPullRequestByIdHandler = (req: Request, res: Response) => {
   const sample = defaultSampleStore.getSampleById(req.params.id);
   if (!sample) {
     return res.status(404).json({ error: `Sample PR '${req.params.id}' not found.` });
   }
-  res.json(sample);
+  try {
+    const validated = PullRequestPayloadSchema.parse(sample);
+    res.json(validated);
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to serialize pull request', details: err.message });
+  }
 };
-triageRouter.get('/samples/:id', getSampleByIdHandler);
-triageRouter.get('/pull-requests/:id', getSampleByIdHandler);
+triageRouter.get('/pull-requests/:id', getPullRequestByIdHandler);
+triageRouter.get('/samples/:id', getPullRequestByIdHandler);
 
 /**
  * POST /api/triage/analyze

@@ -15,35 +15,37 @@ describe('PRoof Express REST API', () => {
     expect(res.body.heuristics.ready).toBe(true);
   });
 
-  it('GET /api/samples returns array of 3 sample pull requests', async () => {
-    const res = await request(app).get('/api/samples');
+  it('GET /api/pull-requests returns array of 4 sample pull requests', async () => {
+    const res = await request(app).get('/api/pull-requests');
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body)).toBe(true);
-    expect(res.body.length).toBe(3);
+    expect(res.body.length).toBe(4);
     const ids = res.body.map((s: any) => s.id);
     expect(ids).toContain('sample-genuine-01');
     expect(ids).toContain('sample-needs-work-02');
     expect(ids).toContain('sample-likely-spam-03');
+    expect(ids).toContain('sample-whitespace-04');
   });
 
-  it('GET /api/pull-requests (alias) returns array of sample pull requests', async () => {
-    const res = await request(app).get('/api/pull-requests');
+  it('GET /api/samples (alias) returns array of sample pull requests', async () => {
+    const res = await request(app).get('/api/samples');
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body)).toBe(true);
-    expect(res.body.length).toBe(3);
+    expect(res.body.length).toBe(4);
   });
 
-  it('GET /api/samples/:id returns specific sample with full patch data', async () => {
-    const res = await request(app).get('/api/samples/sample-genuine-01');
+  it('GET /api/pull-requests/:id returns specific sample with full patch data', async () => {
+    const res = await request(app).get('/api/pull-requests/sample-genuine-01');
     expect(res.status).toBe(200);
     expect(res.body.id).toBe('sample-genuine-01');
     expect(res.body.title).toContain('fix(auth)');
   });
 
-  it('GET /api/pull-requests/:id (alias) returns specific sample', async () => {
-    const res = await request(app).get('/api/pull-requests/sample-genuine-01');
+  it('GET /api/pull-requests/sample-whitespace-04 returns whitespace fixture', async () => {
+    const res = await request(app).get('/api/pull-requests/sample-whitespace-04');
     expect(res.status).toBe(200);
-    expect(res.body.id).toBe('sample-genuine-01');
+    expect(res.body.id).toBe('sample-whitespace-04');
+    expect(res.body.title).toContain('style: adjust indentation');
   });
 
   it('POST /api/triage/analyze returns valid triage result', async () => {
