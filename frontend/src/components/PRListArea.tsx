@@ -13,6 +13,7 @@ import {
   Clock,
   Sparkles,
   FileCode2,
+  Rocket,
 } from 'lucide-react';
 import { PullRequestPayload, AnalysisResult, TriageResult, ReviewVerdict } from '@proof/shared';
 
@@ -22,6 +23,7 @@ export interface PRListAreaProps {
   isCustom: boolean;
   onSelectSample: (id: string) => void;
   onToggleCustom: (custom: boolean) => void;
+  onOpenPreflight?: () => void;
   analysisResults?: Record<string, AnalysisResult | TriageResult>;
   analyzingIds?: Set<string>;
   loading?: boolean;
@@ -35,6 +37,7 @@ export const PRListArea: React.FC<PRListAreaProps> = ({
   isCustom,
   onSelectSample,
   onToggleCustom,
+  onOpenPreflight,
   analysisResults = {},
   analyzingIds = new Set(),
   loading = false,
@@ -177,19 +180,33 @@ export const PRListArea: React.FC<PRListAreaProps> = ({
           </p>
         </div>
 
-        {/* Custom Input Toggle Button */}
-        <button
-          onClick={() => onToggleCustom(!isCustom)}
-          aria-pressed={isCustom}
-          className={`inline-flex items-center gap-2 px-3.5 py-1.5 text-xs font-semibold rounded-xl border transition shadow-sm ${
-            isCustom
-              ? 'bg-indigo-600 text-white border-indigo-500 shadow-indigo-600/30'
-              : 'bg-slate-800/90 text-slate-200 border-slate-700 hover:bg-slate-800 hover:text-white'
-          }`}
-        >
-          <PenSquare className="h-3.5 w-3.5" />
-          <span>{isCustom ? 'Viewing Custom PR' : '+ Test Custom PR'}</span>
-        </button>
+        {/* Header Action Buttons */}
+        <div className="flex flex-wrap items-center gap-2">
+          {onOpenPreflight && (
+            <button
+              onClick={onOpenPreflight}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white shadow-md shadow-indigo-600/30 transition"
+              title="Open Contributor Pre-Flight Form"
+            >
+              <Rocket className="h-3.5 w-3.5" />
+              <span>+ Pre-Flight Check</span>
+            </button>
+          )}
+
+          {/* Custom Input Toggle Button */}
+          <button
+            onClick={() => onToggleCustom(!isCustom)}
+            aria-pressed={isCustom}
+            className={`inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-xl border transition shadow-sm ${
+              isCustom
+                ? 'bg-indigo-600 text-white border-indigo-500 shadow-indigo-600/30'
+                : 'bg-slate-800/90 text-slate-200 border-slate-700 hover:bg-slate-800 hover:text-white'
+            }`}
+          >
+            <PenSquare className="h-3.5 w-3.5" />
+            <span>{isCustom ? 'Viewing Custom PR' : 'Direct Edit PR'}</span>
+          </button>
+        </div>
       </div>
 
       {/* Filter Tabs & Search Bar */}

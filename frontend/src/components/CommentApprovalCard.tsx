@@ -3,22 +3,26 @@ import {
   MessageSquare,
   Send,
   Edit3,
-  CheckCircle,
+  CheckCircle2,
   Copy,
   Sparkles,
   Info,
+  ShieldAlert,
+  RotateCcw,
+  Check,
 } from 'lucide-react';
 import {
+  ReviewComment,
   SuggestedComment,
   ReviewAction,
   ReviewApprovalResponse,
-  Verdict,
+  ReviewVerdict,
 } from '@proof/shared';
 
-interface CommentApprovalCardProps {
+export interface CommentApprovalCardProps {
   prId: string;
-  verdict: Verdict;
-  suggestedComment: SuggestedComment;
+  verdict: ReviewVerdict;
+  suggestedComment: ReviewComment | SuggestedComment;
   onApprove: (data: {
     finalComment: string;
     actionTaken: ReviewAction;
@@ -39,15 +43,22 @@ export const CommentApprovalCard: React.FC<CommentApprovalCardProps> = ({
   const [submitting, setSubmitting] = useState(false);
   const [approvalRecord, setApprovalRecord] = useState<ReviewApprovalResponse | null>(null);
 
+  // Sync state when selected PR or suggested comment changes
   useEffect(() => {
     setCommentText(suggestedComment.markdown);
     setApprovalRecord(null);
   }, [suggestedComment, prId]);
 
+  const isEdited = commentText.trim() !== suggestedComment.markdown.trim();
+
   const handleCopy = () => {
     navigator.clipboard.writeText(commentText);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleReset = () => {
+    setCommentText(suggestedComment.markdown);
   };
 
   const handleApprove = async () => {
@@ -63,7 +74,7 @@ export const CommentApprovalCard: React.FC<CommentApprovalCardProps> = ({
     }
   };
 
-  const getToneBadge = (tone: string) => {
+  const getToneBadge = (tone?: string) => {
     switch (tone) {
       case 'ENCOURAGING':
         return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30';
@@ -77,70 +88,105 @@ export const CommentApprovalCard: React.FC<CommentApprovalCardProps> = ({
   };
 
   return (
-    <div className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-5 backdrop-blur-sm shadow-xl flex flex-col gap-4">
+    <section
+      aria-label="Maintainer Review Comment Approval"
+      className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 sm:p-5 backdrop-blur-sm shadow-xl flex flex-col gap-4"
+    >
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-800">
         <div className="flex items-center gap-2">
           <MessageSquare className="h-5 w-5 text-indigo-400" />
           <h2 className="text-base font-bold text-slate-100">
-            Maintainer Supervised Review Comment
+            Mentoring Review Comment Draft
           </h2>
         </div>
 
         <div className="flex items-center gap-2">
-          <span
-            className={`px-2 py-0.5 rounded-md text-[11px] font-semibold border ${getToneBadge(
-              suggestedComment.tone
-            )}`}
-          >
-            Tone: {suggestedComment.tone.replace('_', ' ')}
-          </span>
-          <span className="text-[11px] text-slate-400 hidden sm:inline">
-            Human-in-the-Loop
-          </span>
+          {isEdited ? (
+            <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
+              Edited by Maintainer
+            </span>
+          ) : (
+            <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-slate-800 text-slate-400 border border-slate-700">
+              Original Draft
+            </span>
+          )}
+
+          {suggestedComment.tone && (
+            <span
+              className={`px-2 py-0.5 rounded-md text-[11px] font-semibold border ${getToneBadge(
+                suggestedComment.tone
+              )}`}
+            >
+              Tone: {suggestedComment.tone.replace(/_/g, ' ')}
+            </span>
+          )}
         </div>
       </div>
 
-      {/* Safety Notice */}
-      <div className="p-3 rounded-xl bg-indigo-950/20 border border-indigo-900/30 text-xs text-indigo-300/90 flex items-start gap-2.5">
+      {/* Explicit Safety & Zero-Publishing Guarantee */}
+      <div className="p-3 rounded-xl bg-slate-950/70 border border-slate-800 text-xs text-slate-300 flex items-start gap-2.5">
         <Info className="h-4 w-4 text-indigo-400 shrink-0 mt-0.5" />
-        <p>
-          <strong>Maintainer Control Guarantee:</strong> PRoof never executes automated merges, closures, or rejections. You can review, refine, and approve the generated draft below before posting.
+        <p className="leading-relaxed">
+          <strong className="text-slate-100">Local-Only Approval Guarantee:</strong> PRoof runs entirely offline. Approving this review updates the local UI and records it in your current session. <em>No comment is posted to GitHub, and no automatic merge/close actions are ever executed.</em>
         </p>
       </div>
 
-      {/* Comment Editor */}
+      {/* Editable Comment Draft Box */}
       <div>
-        <div className="flex items-center justify-between mb-1.5">
-          <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+        <div className="flex items-center justify-between mb-1.5 text-xs">
+          <label className="font-semibold text-slate-300 flex items-center gap-1.5">
             <Edit3 className="h-3.5 w-3.5 text-slate-400" />
-            Review Comment (Editable Markdown)
+            <span>Review Comment (Editable Markdown)</span>
           </label>
-          <button
-            onClick={handleCopy}
-            className="text-xs text-slate-400 hover:text-slate-200 transition flex items-center gap-1 font-medium"
-          >
-            {copied ? (
-              <>
-                <CheckCircle className="h-3 w-3 text-emerald-400" />
-                <span className="text-emerald-400">Copied!</span>
-              </>
-            ) : (
-              <>
-                <Copy className="h-3 w-3" />
-                <span>Copy Draft</span>
-              </>
+
+          <div className="flex items-center gap-3">
+            {isEdited && (
+              <button
+                type="button"
+                onClick={handleReset}
+                className="text-slate-400 hover:text-slate-200 transition flex items-center gap-1 font-medium"
+                title="Reset text to original generated draft"
+              >
+                <RotateCcw className="h-3 w-3" />
+                <span>Reset</span>
+              </button>
             )}
-          </button>
+
+            <button
+              type="button"
+              onClick={handleCopy}
+              className="text-slate-400 hover:text-slate-200 transition flex items-center gap-1 font-medium"
+            >
+              {copied ? (
+                <>
+                  <Check className="h-3 w-3 text-emerald-400" />
+                  <span className="text-emerald-400">Copied!</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="h-3 w-3" />
+                  <span>Copy Draft</span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
 
         <textarea
           value={commentText}
-          onChange={(e) => setCommentText(e.target.value)}
+          onChange={(e) => {
+            setCommentText(e.target.value);
+            // If already approved, editing invalidates current approval record
+            if (approvalRecord) setApprovalRecord(null);
+          }}
           rows={6}
           className="w-full bg-slate-950/80 border border-slate-700/80 rounded-xl p-3.5 text-xs text-slate-200 font-mono leading-relaxed focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/50"
-          placeholder="Edit review comment..."
+          placeholder="Edit mentoring review comment..."
         />
+        <div className="mt-1 text-right text-[11px] text-slate-500 font-mono">
+          {commentText.length} characters • {commentText.split('\n').length} lines
+        </div>
       </div>
 
       {/* Maintainer Action & Notes */}
@@ -154,8 +200,8 @@ export const CommentApprovalCard: React.FC<CommentApprovalCardProps> = ({
             onChange={(e) => setAction(e.target.value as ReviewAction)}
             className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 font-medium"
           >
-            <option value="COMMENT_ONLY">Comment Only (General Feedback)</option>
-            <option value="REQUEST_CHANGES">Request Changes (Needs Adjustments)</option>
+            <option value="COMMENT_ONLY">Comment Only (Mentoring Feedback)</option>
+            <option value="REQUEST_CHANGES">Request Changes (Needs Revisions)</option>
             <option value="APPROVE_FOR_REVIEW">Approve for Review (Mark Qualified)</option>
           </select>
         </div>
@@ -169,18 +215,19 @@ export const CommentApprovalCard: React.FC<CommentApprovalCardProps> = ({
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
-            placeholder="e.g. Good beginner contributor"
+            placeholder="e.g. Good candidate for first-timers badge"
           />
         </div>
       </div>
 
-      {/* Action Button & Confirmation */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
-        <div className="text-[11px] text-slate-400">
-          Target PR: <span className="font-mono text-slate-300">{prId}</span>
+      {/* Approval Trigger Button */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-slate-800/80">
+        <div className="text-[11px] text-slate-400 font-mono">
+          Target PR: <span className="text-slate-200 font-semibold">{prId}</span>
         </div>
 
         <button
+          type="button"
           onClick={handleApprove}
           disabled={submitting || !commentText.trim()}
           className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-semibold text-xs shadow-lg shadow-indigo-600/30 hover:from-indigo-500 hover:to-violet-500 transition disabled:opacity-50 disabled:cursor-not-allowed"
@@ -188,29 +235,41 @@ export const CommentApprovalCard: React.FC<CommentApprovalCardProps> = ({
           {submitting ? (
             <>
               <div className="h-3.5 w-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              <span>Recording Approval...</span>
+              <span>Verifying & Recording Approval...</span>
             </>
           ) : (
             <>
-              <Send className="h-3.5 w-3.5" />
-              <span>Approve & Record Review</span>
+              <CheckCircle2 className="h-4 w-4" />
+              <span>Approve Review Draft (Local Session)</span>
             </>
           )}
         </button>
       </div>
 
-      {/* Success Record Banner */}
+      {/* Approval Confirmation Banner (Explicitly Explaining Local State Update) */}
       {approvalRecord && (
-        <div className="p-3.5 rounded-xl bg-emerald-950/40 border border-emerald-500/40 text-xs text-emerald-200 flex items-start gap-2.5 animate-in fade-in slide-in-from-top-1 duration-300">
-          <CheckCircle className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
-          <div>
-            <span className="font-bold">Review Approved & Logged!</span>
-            <p className="mt-0.5 text-emerald-300/80">
-              Approval ID: <span className="font-mono font-semibold">{approvalRecord.approvalId}</span> • Recorded at {new Date(approvalRecord.recordedAt).toLocaleTimeString()}
-            </p>
+        <div
+          role="status"
+          aria-live="polite"
+          className="p-4 rounded-xl bg-emerald-950/40 border border-emerald-500/40 text-xs text-emerald-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in duration-300 shadow-md"
+        >
+          <div className="flex items-start gap-2.5">
+            <CheckCircle2 className="h-5 w-5 text-emerald-400 shrink-0 mt-0.5 sm:mt-0" />
+            <div>
+              <span className="font-bold text-emerald-100 text-sm">
+                Review Draft Approved Locally!
+              </span>
+              <p className="mt-0.5 text-emerald-300/90 leading-relaxed">
+                Confirmation: This review draft was verified and recorded in your local session (ID: <span className="font-mono font-semibold">{approvalRecord.approvalId}</span>). No comment was published to GitHub.
+              </p>
+            </div>
+          </div>
+
+          <div className="self-end sm:self-auto shrink-0 font-mono text-[11px] text-emerald-400 bg-emerald-950 px-2 py-1 rounded border border-emerald-600/40">
+            Action: {approvalRecord.actionTaken}
           </div>
         </div>
       )}
-    </div>
+    </section>
   );
 };

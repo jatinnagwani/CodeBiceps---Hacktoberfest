@@ -17,13 +17,24 @@ import { PRDetailView } from './components/PRDetailView';
 import { HeuristicsCard } from './components/HeuristicsCard';
 import { VerdictBanner } from './components/VerdictBanner';
 import { CommentApprovalCard } from './components/CommentApprovalCard';
+import { ContributorPreflightModal } from './components/ContributorPreflightModal';
 import {
   fetchHealth,
   fetchPullRequests,
   analyzePullRequest,
   approveReviewComment,
 } from './api-client';
-import { Play, Sparkles, RefreshCw, AlertTriangle, ShieldCheck, ArrowRight, Clock, RotateCcw } from 'lucide-react';
+import {
+  Play,
+  Sparkles,
+  RefreshCw,
+  AlertTriangle,
+  ShieldCheck,
+  ArrowRight,
+  Clock,
+  RotateCcw,
+  Rocket,
+} from 'lucide-react';
 
 export const App: React.FC = () => {
   const [health, setHealth] = useState<HealthStatusResponse | null>(null);
@@ -31,6 +42,7 @@ export const App: React.FC = () => {
   const [selectedId, setSelectedId] = useState<string>('sample-genuine-01');
   const [currentPR, setCurrentPR] = useState<PullRequestPayload | null>(null);
   const [isCustom, setIsCustom] = useState<boolean>(false);
+  const [isPreflightOpen, setIsPreflightOpen] = useState<boolean>(false);
   const [analysisResults, setAnalysisResults] = useState<Record<string, AnalysisResult>>({});
   const [analyzingIds, setAnalyzingIds] = useState<Set<string>>(new Set());
   const [highlightedEvidence, setHighlightedEvidence] = useState<{ file: string; lineRange?: string } | null>(null);
@@ -113,6 +125,15 @@ export const App: React.FC = () => {
     }
   };
 
+  // Handler for contributor pre-flight check submission
+  const handlePreflightSubmit = async (payload: PullRequestPayload) => {
+    setSamples((prev) => [payload, ...prev]);
+    setSelectedId(payload.id);
+    setCurrentPR(payload);
+    setIsCustom(false);
+    await triggerAnalysis(payload);
+  };
+
   // Current active analysis result (never invented before analysis)
   const activeTriageResult = currentPR ? analysisResults[currentPR.id] || null : null;
 
@@ -156,7 +177,7 @@ export const App: React.FC = () => {
     }
   };
 
-  // Review approval action
+  // Review approval action (strictly updates local UI and records in demo session)
   const handleApprove = async (data: {
     finalComment: string;
     actionTaken: ReviewAction;
@@ -185,7 +206,7 @@ export const App: React.FC = () => {
 
       {/* Main Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 flex flex-col gap-6">
-        {/* Title Bar & Quick Action */}
+        {/* Title Bar & Quick Actions */}
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b border-slate-800/80">
           <div>
             <div className="flex items-center gap-2.5">
@@ -202,7 +223,18 @@ export const App: React.FC = () => {
             </p>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+            {/* Contributor Pre-Flight Check Button */}
+            <button
+              onClick={() => setIsPreflightOpen(true)}
+              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-xs font-semibold shadow-md shadow-indigo-600/30 transition transform hover:-translate-y-0.5"
+              title="Open Contributor Pre-Flight Form to test your own PR diff"
+            >
+              <Rocket className="h-3.5 w-3.5" />
+              <span>Pre-Flight Check</span>
+            </button>
+
+            {/* Run / Re-run Analysis Button */}
             <button
               onClick={() => currentPR && triggerAnalysis(currentPR)}
               disabled={analyzing || loading || !currentPR}
@@ -282,6 +314,7 @@ export const App: React.FC = () => {
               isCustom={isCustom}
               onSelectSample={handleSelectSample}
               onToggleCustom={handleToggleCustom}
+              onOpenPreflight={() => setIsPreflightOpen(true)}
               analysisResults={analysisResults}
               analyzingIds={analyzingIds}
               loading={loading}
@@ -366,7 +399,10 @@ export const App: React.FC = () => {
                       <CommentApprovalCard
                         prId={currentPR.id}
                         verdict={activeTriageResult.verdict}
-                        suggestedComment={activeTriageResult.reviewComment || (activeTriageResult as any).suggestedComment}
+                        suggestedComment={
+                          activeTriageResult.reviewComment ||
+                          (activeTriageResult as any).suggestedComment
+                        }
                         onApprove={handleApprove}
                       />
                     </>
@@ -410,6 +446,14 @@ export const App: React.FC = () => {
           </>
         )}
       </main>
+
+      {/* Contributor Pre-Flight Check Modal */}
+      <ContributorPreflightModal
+        isOpen={isPreflightOpen}
+        onClose={() => setIsPreflightOpen(false)}
+        onSubmit={handlePreflightSubmit}
+        isSubmitting={analyzing}
+      />
 
       {/* Footer */}
       <footer className="border-t border-slate-800/80 bg-slate-950 py-6 mt-12 text-xs text-slate-400">
