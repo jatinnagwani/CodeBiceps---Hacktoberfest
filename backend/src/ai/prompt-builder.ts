@@ -49,6 +49,7 @@ Output your assessment in the following JSON format:
 {
   "verdict": "GENUINE" | "NEEDS_WORK" | "LIKELY_SPAM",
   "confidence": "HIGH" | "MEDIUM" | "LOW",
+  "reasoning": "1-3 sentences concise justification for the verdict grounded in observable facts and diff evidence",
   "summary": "1-2 sentence executive summary of the evaluation",
   "evidence": [
     {
