@@ -172,7 +172,7 @@ describe('Full Heuristic Suite Orchestration', () => {
 
   it('handles empty diff PR gracefully and includes empty-diff-check rule', () => {
     const emptyPR: PullRequestPayload = {
-      ...likelySpamPR,
+      ...(likelySpamPR as unknown as PullRequestPayload),
       id: 'test-empty',
       filesChanged: [],
       stats: { totalAdditions: 0, totalDeletions: 0, totalFiles: 0 },
