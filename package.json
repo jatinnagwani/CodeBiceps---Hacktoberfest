@@ -1,0 +1,30 @@
+{
+  "name": "proof-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "PRoof - Local-First AI Pull Request Review and Triage Tool",
+  "workspaces": [
+    "shared",
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "dev:backend": "npm run dev --workspace=@proof/backend",
+    "dev:frontend": "npm run dev --workspace=@proof/frontend",
+    "build": "npm run build --workspace=@proof/shared && npm run build --workspace=@proof/backend && npm run build --workspace=@proof/frontend",
+    "test": "npm test --workspace=@proof/backend",
+    "start": "npm start --workspace=@proof/backend"
+  },
+  "keywords": [
+    "hacktoberfest",
+    "github",
+    "pull-request",
+    "triage",
+    "ai",
+    "ollama",
+    "local-first",
+    "code-review"
+  ],
+  "author": "CodeBiceps Team",
+  "license": "MIT"
+}
