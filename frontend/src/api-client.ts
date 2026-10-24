@@ -1,5 +1,6 @@
 import {
   PullRequestPayload,
+  AnalysisResult,
   TriageResult,
   HealthStatusResponse,
   ReviewApprovalRequest,
@@ -37,19 +38,54 @@ export async function fetchPullRequestById(id: string): Promise<PullRequestPaylo
   return res.json();
 }
 
-export async function analyzePullRequest(pr: PullRequestPayload): Promise<TriageResult> {
-  const res = await fetch(`${BASE_URL}/analyze`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(pr),
-  });
+export interface AnalyzeOptions {
+  timeoutMs?: number;
+}
 
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.error || `Triage analysis failed with status ${res.status}`);
+/**
+ * Calls POST /api/analyze to evaluate a pull request.
+ * Enforces a bounded request timeout (default 25s) with AbortController
+ * to gracefully handle timeouts and server issues without freezing the UI.
+ */
+export async function analyzePullRequest(
+  pr: PullRequestPayload,
+  options: AnalyzeOptions = {}
+): Promise<AnalysisResult> {
+  const timeoutMs = options.timeoutMs ?? 25000;
+  const controller = new AbortController();
+  const timer = setTimeout(() => {
+    controller.abort();
+  }, timeoutMs);
+
+  try {
+    const res = await fetch(`${BASE_URL}/analyze`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(pr),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timer);
+
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      const message =
+        errorData.error ||
+        errorData.message ||
+        `Triage analysis failed with status ${res.status}`;
+      throw new Error(message);
+    }
+
+    return res.json();
+  } catch (err: any) {
+    clearTimeout(timer);
+    if (err.name === 'AbortError') {
+      throw new Error(
+        `Analysis timed out after ${Math.round(timeoutMs / 1000)} seconds. The local engine took longer than expected.`
+      );
+    }
+    throw err;
   }
-
-  return res.json();
 }
 
 export async function approveReviewComment(

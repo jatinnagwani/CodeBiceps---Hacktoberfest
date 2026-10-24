@@ -14,7 +14,7 @@ import {
   Sparkles,
   FileCode2,
 } from 'lucide-react';
-import { PullRequestPayload, TriageResult, ReviewVerdict } from '@proof/shared';
+import { PullRequestPayload, AnalysisResult, TriageResult, ReviewVerdict } from '@proof/shared';
 
 export interface PRListAreaProps {
   samples: PullRequestPayload[];
@@ -22,7 +22,7 @@ export interface PRListAreaProps {
   isCustom: boolean;
   onSelectSample: (id: string) => void;
   onToggleCustom: (custom: boolean) => void;
-  analysisResults?: Record<string, TriageResult>;
+  analysisResults?: Record<string, AnalysisResult | TriageResult>;
   analyzingIds?: Set<string>;
   loading?: boolean;
 }

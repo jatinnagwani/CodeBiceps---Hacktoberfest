@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   PullRequestPayload,
-  TriageResult,
+  AnalysisResult,
   HealthStatusResponse,
   ReviewAction,
   ReviewApprovalResponse,
@@ -23,7 +23,7 @@ import {
   analyzePullRequest,
   approveReviewComment,
 } from './api-client';
-import { Play, Sparkles, RefreshCw, AlertTriangle, ShieldCheck, ArrowRight } from 'lucide-react';
+import { Play, Sparkles, RefreshCw, AlertTriangle, ShieldCheck, ArrowRight, Clock, RotateCcw } from 'lucide-react';
 
 export const App: React.FC = () => {
   const [health, setHealth] = useState<HealthStatusResponse | null>(null);
@@ -31,17 +31,20 @@ export const App: React.FC = () => {
   const [selectedId, setSelectedId] = useState<string>('sample-genuine-01');
   const [currentPR, setCurrentPR] = useState<PullRequestPayload | null>(null);
   const [isCustom, setIsCustom] = useState<boolean>(false);
-  const [analysisResults, setAnalysisResults] = useState<Record<string, TriageResult>>({});
+  const [analysisResults, setAnalysisResults] = useState<Record<string, AnalysisResult>>({});
   const [analyzingIds, setAnalyzingIds] = useState<Set<string>>(new Set());
+  const [highlightedEvidence, setHighlightedEvidence] = useState<{ file: string; lineRange?: string } | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [analyzing, setAnalyzing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [isTimeoutError, setIsTimeoutError] = useState<boolean>(false);
 
   // Initial load: health & pull requests from backend API (GET /api/pull-requests)
   const loadInitialData = async () => {
     try {
       setLoading(true);
       setError(null);
+      setIsTimeoutError(false);
       const [h, prs] = await Promise.all([fetchHealth(), fetchPullRequests()]);
       setHealth(h);
       setSamples(prs);
@@ -50,7 +53,7 @@ export const App: React.FC = () => {
         const first = prs[0];
         setSelectedId(first.id);
         setCurrentPR(first);
-        // Automatically analyze first PR for immediate maintainer walkthrough
+        // Automatically evaluate first PR to showcase local workflow
         await triggerAnalysis(first);
       } else {
         setCurrentPR(null);
@@ -70,19 +73,26 @@ export const App: React.FC = () => {
     loadInitialData();
   }, []);
 
-  // Analysis executor with result caching
+  // Analysis executor with timeout and error state handling
   const triggerAnalysis = async (prToAnalyze: PullRequestPayload) => {
     try {
       setAnalyzing(true);
       setAnalyzingIds((prev) => new Set(prev).add(prToAnalyze.id));
       setError(null);
-      const res = await analyzePullRequest(prToAnalyze);
+      setIsTimeoutError(false);
+
+      // Call POST /api/analyze with 25s timeout via AbortController
+      const res = await analyzePullRequest(prToAnalyze, { timeoutMs: 25000 });
+
       setAnalysisResults((prev) => ({
         ...prev,
         [prToAnalyze.id]: res,
       }));
     } catch (err: any) {
-      setError(err.message || 'Analysis failed');
+      console.error('[triggerAnalysis] Error:', err);
+      const isTimeout = err.message?.includes('timed out');
+      setIsTimeoutError(isTimeout);
+      setError(err.message || 'Analysis failed. Check backend status.');
     } finally {
       setAnalyzing(false);
       setAnalyzingIds((prev) => {
@@ -96,18 +106,20 @@ export const App: React.FC = () => {
   // Handler for PR selection
   const handleSelectSample = (id: string) => {
     setSelectedId(id);
+    setHighlightedEvidence(null);
     const found = samples.find((s) => s.id === id);
     if (found) {
       setCurrentPR(found);
     }
   };
 
-  // Current active analysis result (never invented)
+  // Current active analysis result (never invented before analysis)
   const activeTriageResult = currentPR ? analysisResults[currentPR.id] || null : null;
 
   // Handler for custom PR mode
   const handleToggleCustom = (custom: boolean) => {
     setIsCustom(custom);
+    setHighlightedEvidence(null);
     if (custom) {
       const template: PullRequestPayload = {
         id: `custom-pr-${Date.now().toString(36)}`,
@@ -203,22 +215,44 @@ export const App: React.FC = () => {
           </div>
         </header>
 
-        {/* Global Inline Error (when PR analysis fails but app is otherwise loaded) */}
+        {/* Global Error Banner (Timeout or Analysis Failures) */}
         {error && samples.length > 0 && (
           <div
             role="alert"
-            className="p-4 rounded-xl bg-rose-950/40 border border-rose-800 text-rose-300 text-xs flex items-center gap-3 shadow-lg"
+            className={`p-4 rounded-xl border text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-lg ${
+              isTimeoutError
+                ? 'bg-amber-950/40 border-amber-800 text-amber-200'
+                : 'bg-rose-950/40 border-rose-800 text-rose-300'
+            }`}
           >
-            <AlertTriangle className="h-5 w-5 text-rose-400 shrink-0" />
-            <div className="flex-1">
-              <strong>Analysis Alert:</strong> {error}
+            <div className="flex items-start sm:items-center gap-3">
+              {isTimeoutError ? (
+                <Clock className="h-5 w-5 text-amber-400 shrink-0 mt-0.5 sm:mt-0" />
+              ) : (
+                <AlertTriangle className="h-5 w-5 text-rose-400 shrink-0 mt-0.5 sm:mt-0" />
+              )}
+              <div className="leading-relaxed">
+                <strong>{isTimeoutError ? 'Analysis Timeout:' : 'Analysis Alert:'}</strong> {error}
+              </div>
             </div>
-            <button
-              onClick={() => setError(null)}
-              className="text-rose-400 hover:text-rose-200 text-xs underline"
-            >
-              Dismiss
-            </button>
+
+            <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+              {currentPR && (
+                <button
+                  onClick={() => triggerAnalysis(currentPR)}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-850 hover:bg-slate-800 text-xs font-semibold border border-white/10 text-slate-200 transition"
+                >
+                  <RotateCcw className="h-3 w-3" />
+                  <span>Retry</span>
+                </button>
+              )}
+              <button
+                onClick={() => setError(null)}
+                className="text-slate-400 hover:text-slate-200 text-xs underline px-1"
+              >
+                Dismiss
+              </button>
+            </div>
           </div>
         )}
 
@@ -264,6 +298,8 @@ export const App: React.FC = () => {
                     isAnalyzing={analyzing}
                     analysisResult={activeTriageResult}
                     onTriggerAnalysis={() => triggerAnalysis(currentPR)}
+                    highlightedTarget={highlightedEvidence}
+                    onClearHighlight={() => setHighlightedEvidence(null)}
                     onCustomChange={(updated) => {
                       setCurrentPR(updated);
                     }}
@@ -313,7 +349,12 @@ export const App: React.FC = () => {
                   ) : activeTriageResult ? (
                     <>
                       {/* Verdict & Evidence Banner */}
-                      <VerdictBanner result={activeTriageResult} />
+                      <VerdictBanner
+                        result={activeTriageResult}
+                        onHighlightDiff={(file, lineRange) => {
+                          setHighlightedEvidence({ file, lineRange });
+                        }}
+                      />
 
                       {/* Heuristic Breakdown Card */}
                       <HeuristicsCard
@@ -325,7 +366,7 @@ export const App: React.FC = () => {
                       <CommentApprovalCard
                         prId={currentPR.id}
                         verdict={activeTriageResult.verdict}
-                        suggestedComment={activeTriageResult.suggestedComment}
+                        suggestedComment={activeTriageResult.reviewComment || (activeTriageResult as any).suggestedComment}
                         onApprove={handleApprove}
                       />
                     </>

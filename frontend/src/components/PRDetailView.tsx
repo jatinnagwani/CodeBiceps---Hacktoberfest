@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   GitPullRequest,
   FileCode,
@@ -13,8 +13,10 @@ import {
   Calendar,
   Sparkles,
   GitBranch,
+  Target,
+  X,
 } from 'lucide-react';
-import { PullRequestPayload, TriageResult } from '@proof/shared';
+import { PullRequestPayload, AnalysisResult, TriageResult } from '@proof/shared';
 
 export interface PRDetailViewProps {
   pr: PullRequestPayload | null;
@@ -25,7 +27,9 @@ export interface PRDetailViewProps {
   onCustomChange?: (updated: PullRequestPayload) => void;
   onTriggerAnalysis?: () => void;
   isAnalyzing?: boolean;
-  analysisResult?: TriageResult | null;
+  analysisResult?: AnalysisResult | TriageResult | null;
+  highlightedTarget?: { file: string; lineRange?: string } | null;
+  onClearHighlight?: () => void;
 }
 
 export const PRDetailView: React.FC<PRDetailViewProps> = ({
@@ -38,9 +42,36 @@ export const PRDetailView: React.FC<PRDetailViewProps> = ({
   onTriggerAnalysis,
   isAnalyzing = false,
   analysisResult,
+  highlightedTarget = null,
+  onClearHighlight,
 }) => {
   const [descExpanded, setDescExpanded] = useState(true);
   const [selectedFileIdx, setSelectedFileIdx] = useState(0);
+
+  // Synchronize active tab with selected evidence file citation
+  useEffect(() => {
+    if (highlightedTarget?.file && pr?.filesChanged) {
+      const idx = pr.filesChanged.findIndex(
+        (f) =>
+          f.filename === highlightedTarget.file ||
+          f.filename.endsWith(highlightedTarget.file) ||
+          highlightedTarget.file.endsWith(f.filename)
+      );
+      if (idx !== -1) {
+        setSelectedFileIdx(idx);
+      }
+    }
+  }, [highlightedTarget, pr]);
+
+  // Parse highlighted line range (e.g. "L24-L35" or "L42")
+  const parsedRange = useMemo(() => {
+    if (!highlightedTarget?.lineRange) return null;
+    const match = highlightedTarget.lineRange.match(/L?(\d+)(?:-L?(\d+))?/);
+    if (!match) return null;
+    const start = parseInt(match[1], 10);
+    const end = match[2] ? parseInt(match[2], 10) : start;
+    return { start, end };
+  }, [highlightedTarget]);
 
   // 1. Loading State
   if (loading) {
@@ -104,6 +135,15 @@ export const PRDetailView: React.FC<PRDetailViewProps> = ({
   }
 
   const selectedFile = pr.filesChanged[selectedFileIdx] || pr.filesChanged[0];
+  const isTargetFile =
+    highlightedTarget &&
+    selectedFile &&
+    (selectedFile.filename === highlightedTarget.file ||
+      selectedFile.filename.endsWith(highlightedTarget.file) ||
+      highlightedTarget.file.endsWith(selectedFile.filename));
+
+  // Compute line numbers across unified diff hunks
+  let currentNewLineNum = 0;
 
   return (
     <article
@@ -284,6 +324,30 @@ export const PRDetailView: React.FC<PRDetailViewProps> = ({
           </div>
         </div>
 
+        {/* Evidence Highlight Notice Banner */}
+        {isTargetFile && highlightedTarget && (
+          <div className="px-3.5 py-2 bg-indigo-950/60 border-b border-indigo-500/30 flex items-center justify-between text-xs text-indigo-200 animate-fadeIn">
+            <div className="flex items-center gap-2">
+              <Target className="h-4 w-4 text-indigo-400 shrink-0" />
+              <span>
+                Evidence Focus: <strong className="font-mono text-indigo-300">{highlightedTarget.file}</strong>
+                {highlightedTarget.lineRange && (
+                  <span className="ml-1 text-indigo-400 font-mono">({highlightedTarget.lineRange})</span>
+                )}
+              </span>
+            </div>
+            {onClearHighlight && (
+              <button
+                onClick={onClearHighlight}
+                className="text-indigo-400 hover:text-indigo-100 p-0.5 rounded transition"
+                title="Clear evidence focus"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Diff Content Box */}
         <div className="p-0 overflow-x-auto max-h-[380px] lg:max-h-[420px] overflow-y-auto">
           {isCustom ? (
@@ -319,11 +383,29 @@ export const PRDetailView: React.FC<PRDetailViewProps> = ({
                   const isDel = line.startsWith('-') && !line.startsWith('---');
                   const isHunk = line.startsWith('@@');
 
+                  if (isHunk) {
+                    const match = line.match(/\+(\d+)/);
+                    if (match) {
+                      currentNewLineNum = parseInt(match[1], 10) - 1;
+                    }
+                  } else if (!isDel) {
+                    currentNewLineNum += 1;
+                  }
+
+                  const isHighlighted =
+                    isTargetFile &&
+                    parsedRange &&
+                    !isHunk &&
+                    currentNewLineNum >= parsedRange.start &&
+                    currentNewLineNum <= parsedRange.end;
+
                   return (
                     <div
                       key={i}
-                      className={`px-3 py-0.5 flex items-start gap-3 select-text ${
-                        isAdd
+                      className={`px-3 py-0.5 flex items-start gap-3 select-text transition-colors duration-150 ${
+                        isHighlighted
+                          ? 'bg-indigo-500/25 text-indigo-100 border-l-4 border-indigo-400 shadow-inner'
+                          : isAdd
                           ? 'bg-emerald-500/10 text-emerald-200 border-l-2 border-emerald-500'
                           : isDel
                           ? 'bg-rose-500/10 text-rose-200 border-l-2 border-rose-500'
@@ -333,11 +415,16 @@ export const PRDetailView: React.FC<PRDetailViewProps> = ({
                       }`}
                     >
                       <span className="text-slate-600 select-none w-7 text-right shrink-0">
-                        {i + 1}
+                        {isHunk ? '..' : currentNewLineNum || i + 1}
                       </span>
-                      <pre className="whitespace-pre-wrap break-all font-mono">
+                      <pre className="whitespace-pre-wrap break-all font-mono flex-1">
                         {line}
                       </pre>
+                      {isHighlighted && (
+                        <span className="text-[10px] font-sans font-semibold text-indigo-300 bg-indigo-950/80 px-1.5 py-0.2 rounded border border-indigo-500/40 select-none shrink-0 self-center">
+                          Cited Evidence
+                        </span>
+                      )}
                     </div>
                   );
                 })
