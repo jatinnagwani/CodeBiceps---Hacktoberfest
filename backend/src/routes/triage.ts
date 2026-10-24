@@ -3,11 +3,12 @@ import { z } from 'zod';
 import {
   PullRequestSchema,
   PullRequestPayloadSchema,
+  AnalysisResultSchema,
   ReviewApprovalRequestSchema,
   HealthStatusResponse,
   ReviewApprovalResponse,
 } from '@proof/shared';
-import { defaultTriagePipeline } from '../pipeline/triage-pipeline';
+import { defaultReviewEngine, defaultTriagePipeline } from '../engine/review-engine';
 import { defaultSampleStore } from '../samples/sample-store';
 import { defaultOllamaClient } from '../ai/ollama-client';
 import { validateAllEvidence } from '../validation/evidence-validator';
@@ -84,11 +85,18 @@ triageRouter.get('/pull-requests/:id', getPullRequestByIdHandler);
 triageRouter.get('/samples/:id', getPullRequestByIdHandler);
 
 /**
- * POST /api/triage/analyze
- * POST /api/analyze (alias)
- * Analyzes any incoming PR payload through the triage pipeline.
+ * POST /api/analyze
+ * POST /api/triage/analyze (alias)
+ * Analyzes any incoming PR payload through the ReviewEngine.
+ * Returns a validated AnalysisResult contract.
  */
 const analyzeHandler = async (req: Request, res: Response) => {
+  if (!req.body || typeof req.body !== 'object' || Object.keys(req.body).length === 0) {
+    return res.status(400).json({
+      error: 'Missing pull request payload in request body.',
+    });
+  }
+
   const parsed = PullRequestPayloadSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({
@@ -98,15 +106,19 @@ const analyzeHandler = async (req: Request, res: Response) => {
   }
 
   try {
-    const result = await defaultTriagePipeline.triage(parsed.data);
-    res.json(result);
-  } catch (err) {
-    console.error('[triage/analyze] Unexpected error:', err);
-    res.status(500).json({ error: 'Failed to analyze pull request.' });
+    const result = await defaultReviewEngine.review(parsed.data);
+    const validatedResult = AnalysisResultSchema.passthrough().parse(result);
+    res.json(validatedResult);
+  } catch (err: any) {
+    console.error('[api/analyze] Unexpected error during review:', err);
+    res.status(500).json({
+      error: 'Failed to analyze pull request.',
+      message: err?.message || 'Review engine error',
+    });
   }
 };
-triageRouter.post('/triage/analyze', analyzeHandler);
 triageRouter.post('/analyze', analyzeHandler);
+triageRouter.post('/triage/analyze', analyzeHandler);
 
 /**
  * POST /api/reviews/approve
