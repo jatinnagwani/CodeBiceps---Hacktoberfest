@@ -526,7 +526,19 @@ export function filterValidEvidence(
   for (const ev of evidenceList) {
     const res = validateEvidence(ev, filesChanged);
     if (res.isValid) {
-      valid.push(ev);
+      let normalizedLineRange = ev.lineRange;
+      if (normalizedLineRange) {
+        const parsed = parseLineRange(normalizedLineRange);
+        if (parsed) {
+          normalizedLineRange = parsed.isRange
+            ? `L${parsed.start}-L${parsed.end}`
+            : `L${parsed.start}`;
+        }
+      }
+      valid.push({
+        ...ev,
+        lineRange: normalizedLineRange,
+      });
     } else {
       rejected.push({ evidence: ev, result: res });
     }
