@@ -16,16 +16,29 @@ export async function fetchHealth(): Promise<HealthStatusResponse> {
   return res.json();
 }
 
-export async function fetchSamples(): Promise<PullRequestPayload[]> {
-  const res = await fetch(`${BASE_URL}/samples`);
+export async function fetchPullRequests(): Promise<PullRequestPayload[]> {
+  const res = await fetch(`${BASE_URL}/pull-requests`);
   if (!res.ok) {
-    throw new Error(`Failed to load sample pull requests`);
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error || `Failed to load pull requests (status ${res.status})`);
+  }
+  return res.json();
+}
+
+/** Backward-compatible alias for fetchPullRequests */
+export const fetchSamples = fetchPullRequests;
+
+export async function fetchPullRequestById(id: string): Promise<PullRequestPayload> {
+  const res = await fetch(`${BASE_URL}/pull-requests/${encodeURIComponent(id)}`);
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error || `Failed to fetch PR #${id} (status ${res.status})`);
   }
   return res.json();
 }
 
 export async function analyzePullRequest(pr: PullRequestPayload): Promise<TriageResult> {
-  const res = await fetch(`${BASE_URL}/triage/analyze`, {
+  const res = await fetch(`${BASE_URL}/analyze`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(pr),

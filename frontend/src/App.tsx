@@ -19,11 +19,11 @@ import { VerdictBanner } from './components/VerdictBanner';
 import { CommentApprovalCard } from './components/CommentApprovalCard';
 import {
   fetchHealth,
-  fetchSamples,
+  fetchPullRequests,
   analyzePullRequest,
   approveReviewComment,
 } from './api-client';
-import { Play, Sparkles, RefreshCw, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { Play, Sparkles, RefreshCw, AlertTriangle, ShieldCheck, ArrowRight } from 'lucide-react';
 
 export const App: React.FC = () => {
   const [health, setHealth] = useState<HealthStatusResponse | null>(null);
@@ -31,28 +31,29 @@ export const App: React.FC = () => {
   const [selectedId, setSelectedId] = useState<string>('sample-genuine-01');
   const [currentPR, setCurrentPR] = useState<PullRequestPayload | null>(null);
   const [isCustom, setIsCustom] = useState<boolean>(false);
-  const [triageResult, setTriageResult] = useState<TriageResult | null>(null);
+  const [analysisResults, setAnalysisResults] = useState<Record<string, TriageResult>>({});
+  const [analyzingIds, setAnalyzingIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState<boolean>(true);
   const [analyzing, setAnalyzing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Initial load: health & samples from backend API
+  // Initial load: health & pull requests from backend API (GET /api/pull-requests)
   const loadInitialData = async () => {
     try {
       setLoading(true);
       setError(null);
-      const [h, s] = await Promise.all([fetchHealth(), fetchSamples()]);
+      const [h, prs] = await Promise.all([fetchHealth(), fetchPullRequests()]);
       setHealth(h);
-      setSamples(s);
+      setSamples(prs);
 
-      if (s.length > 0) {
-        const first = s[0];
+      if (prs.length > 0) {
+        const first = prs[0];
         setSelectedId(first.id);
         setCurrentPR(first);
+        // Automatically analyze first PR for immediate maintainer walkthrough
         await triggerAnalysis(first);
       } else {
         setCurrentPR(null);
-        setTriageResult(null);
       }
     } catch (err: any) {
       console.error('Initialization error:', err);
@@ -69,15 +70,40 @@ export const App: React.FC = () => {
     loadInitialData();
   }, []);
 
-  // Handler for sample selection
-  const handleSelectSample = async (id: string) => {
+  // Analysis executor with result caching
+  const triggerAnalysis = async (prToAnalyze: PullRequestPayload) => {
+    try {
+      setAnalyzing(true);
+      setAnalyzingIds((prev) => new Set(prev).add(prToAnalyze.id));
+      setError(null);
+      const res = await analyzePullRequest(prToAnalyze);
+      setAnalysisResults((prev) => ({
+        ...prev,
+        [prToAnalyze.id]: res,
+      }));
+    } catch (err: any) {
+      setError(err.message || 'Analysis failed');
+    } finally {
+      setAnalyzing(false);
+      setAnalyzingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(prToAnalyze.id);
+        return next;
+      });
+    }
+  };
+
+  // Handler for PR selection
+  const handleSelectSample = (id: string) => {
     setSelectedId(id);
     const found = samples.find((s) => s.id === id);
     if (found) {
       setCurrentPR(found);
-      await triggerAnalysis(found);
     }
   };
+
+  // Current active analysis result (never invented)
+  const activeTriageResult = currentPR ? analysisResults[currentPR.id] || null : null;
 
   // Handler for custom PR mode
   const handleToggleCustom = (custom: boolean) => {
@@ -110,27 +136,11 @@ export const App: React.FC = () => {
         },
       };
       setCurrentPR(template);
-      triggerAnalysis(template);
     } else {
       const original = samples.find((s) => s.id === selectedId) || samples[0];
       if (original) {
         setCurrentPR(original);
-        triggerAnalysis(original);
       }
-    }
-  };
-
-  // Analysis executor
-  const triggerAnalysis = async (prToAnalyze: PullRequestPayload) => {
-    try {
-      setAnalyzing(true);
-      setError(null);
-      const res = await analyzePullRequest(prToAnalyze);
-      setTriageResult(res);
-    } catch (err: any) {
-      setError(err.message || 'Analysis failed');
-    } finally {
-      setAnalyzing(false);
     }
   };
 
@@ -140,12 +150,12 @@ export const App: React.FC = () => {
     actionTaken: ReviewAction;
     maintainerNotes?: string;
   }): Promise<ReviewApprovalResponse | null> => {
-    if (!currentPR || !triageResult) return null;
+    if (!currentPR || !activeTriageResult) return null;
 
     try {
       return await approveReviewComment({
         prId: currentPR.id,
-        approvedVerdict: triageResult.verdict,
+        approvedVerdict: activeTriageResult.verdict,
         finalComment: data.finalComment,
         actionTaken: data.actionTaken,
         maintainerNotes: data.maintainerNotes,
@@ -185,9 +195,10 @@ export const App: React.FC = () => {
               onClick={() => currentPR && triggerAnalysis(currentPR)}
               disabled={analyzing || loading || !currentPR}
               className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-900/90 hover:bg-slate-800 text-slate-200 border border-slate-700/80 text-xs font-semibold shadow-sm transition disabled:opacity-50"
+              title="Run or re-run analysis for the currently selected PR"
             >
               <RefreshCw className={`h-3.5 w-3.5 ${analyzing ? 'animate-spin text-indigo-400' : ''}`} />
-              <span>{analyzing ? 'Analyzing PR...' : 'Re-run Analysis'}</span>
+              <span>{analyzing ? 'Analyzing PR...' : activeTriageResult ? 'Re-run Analysis' : 'Run Analysis'}</span>
             </button>
           </div>
         </header>
@@ -237,6 +248,9 @@ export const App: React.FC = () => {
               isCustom={isCustom}
               onSelectSample={handleSelectSample}
               onToggleCustom={handleToggleCustom}
+              analysisResults={analysisResults}
+              analyzingIds={analyzingIds}
+              loading={loading}
             />
 
             {/* Two-Column Inspection & Triage Workspace */}
@@ -247,6 +261,9 @@ export const App: React.FC = () => {
                   <PRDetailView
                     pr={currentPR}
                     isCustom={isCustom}
+                    isAnalyzing={analyzing}
+                    analysisResult={activeTriageResult}
+                    onTriggerAnalysis={() => triggerAnalysis(currentPR)}
                     onCustomChange={(updated) => {
                       setCurrentPR(updated);
                     }}
@@ -293,26 +310,59 @@ export const App: React.FC = () => {
                         Zero data sent outside your machine
                       </div>
                     </div>
-                  ) : triageResult ? (
+                  ) : activeTriageResult ? (
                     <>
                       {/* Verdict & Evidence Banner */}
-                      <VerdictBanner result={triageResult} />
+                      <VerdictBanner result={activeTriageResult} />
 
                       {/* Heuristic Breakdown Card */}
                       <HeuristicsCard
-                        score={triageResult.metadata.heuristicScore}
-                        findings={triageResult.heuristicFindings}
+                        score={activeTriageResult.metadata.heuristicScore}
+                        findings={activeTriageResult.heuristicFindings}
                       />
 
                       {/* Maintainer Review Approval Interface */}
                       <CommentApprovalCard
                         prId={currentPR.id}
-                        verdict={triageResult.verdict}
-                        suggestedComment={triageResult.suggestedComment}
+                        verdict={activeTriageResult.verdict}
+                        suggestedComment={activeTriageResult.suggestedComment}
                         onApprove={handleApprove}
                       />
                     </>
-                  ) : null}
+                  ) : (
+                    /* Awaiting Analysis State (Never invent verdicts!) */
+                    <div
+                      role="region"
+                      aria-label="Awaiting Analysis"
+                      className="bg-slate-900/60 border border-slate-800 rounded-2xl p-8 backdrop-blur-sm shadow-xl flex flex-col items-center justify-center text-center gap-4 min-h-[300px]"
+                    >
+                      <div className="h-12 w-12 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
+                        <ShieldCheck className="h-6 w-6" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-semibold text-slate-200">
+                          Pull Request Awaiting Triage
+                        </h3>
+                        <p className="text-xs text-slate-400 mt-1 max-w-xs leading-relaxed">
+                          This PR has not been analyzed yet. Run PRoof to inspect diff substance, calculate heuristic scores, and synthesize feedback.
+                        </p>
+                      </div>
+
+                      <button
+                        onClick={() => triggerAnalysis(currentPR)}
+                        disabled={analyzing}
+                        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-semibold text-xs shadow-lg shadow-indigo-600/30 transition transform hover:-translate-y-0.5"
+                      >
+                        <Sparkles className="h-4 w-4" />
+                        <span>Run PRoof Analysis</span>
+                        <ArrowRight className="h-3.5 w-3.5 ml-0.5" />
+                      </button>
+
+                      <div className="text-[11px] text-slate-500 font-mono">
+                        No verdict will be assigned until analyzed.
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
