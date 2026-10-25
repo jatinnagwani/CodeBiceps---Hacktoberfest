@@ -267,3 +267,5 @@ Follow this quick walkthrough using the pre-configured sample PR fixtures:
 
 This project is licensed under the **[MIT License](./LICENSE)** — Copyright (c) 2026 Jatin Nagwani / CodeBiceps.
 All third-party libraries and runtime components utilized are open-source under permissive licenses (MIT / Apache 2.0).
+
+ppt link - https://drive.google.com/file/d/1Eh071WvZo7NWAfnYvsTwK5ypVeRMS-yk/view?usp=sharing
