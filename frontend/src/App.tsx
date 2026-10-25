@@ -6,16 +6,7 @@ import {
   ReviewAction,
   ReviewApprovalResponse,
 } from '@proof/shared';
-import { Navbar } from './components/Navbar';
-import { LocalTriageExplainer } from './components/LocalTriageExplainer';
-import { PRListArea } from './components/PRListArea';
-import { AdvisoryNotice } from './components/AdvisoryNotice';
-import { DashboardSkeleton } from './components/DashboardSkeleton';
-import { ApiErrorCard } from './components/ApiErrorCard';
-import { EmptyPRList } from './components/EmptyPRList';
 import { PRDetailView } from './components/PRDetailView';
-import { HeuristicsCard } from './components/HeuristicsCard';
-import { VerdictBanner } from './components/VerdictBanner';
 import { CommentApprovalCard } from './components/CommentApprovalCard';
 import { ContributorPreflightModal } from './components/ContributorPreflightModal';
 import { ClaimWatchView } from './components/ClaimWatchView';
@@ -26,20 +17,31 @@ import {
   approveReviewComment,
 } from './api-client';
 import {
-  Play,
-  Sparkles,
-  RefreshCw,
-  AlertTriangle,
   ShieldCheck,
-  ArrowRight,
   Clock,
-  RotateCcw,
-  Rocket,
   LayoutDashboard,
+  Search,
+  Settings,
+  Moon,
+  Sun,
+  Github,
+  Info,
+  ExternalLink,
   CheckCircle2,
-  FileCode,
-  Shield,
+  AlertTriangle,
+  XCircle,
+  Copy,
+  Check,
+  ArrowRight,
+  GitPullRequest,
   Layers,
+  Sparkles,
+  HelpCircle,
+  X,
+  FileText,
+  User,
+  Shield,
+  BookOpen,
 } from 'lucide-react';
 
 export const App: React.FC = () => {
@@ -47,7 +49,6 @@ export const App: React.FC = () => {
   const [samples, setSamples] = useState<PullRequestPayload[]>([]);
   const [selectedId, setSelectedId] = useState<string>('sample-genuine-01');
   const [currentPR, setCurrentPR] = useState<PullRequestPayload | null>(null);
-  const [isCustom, setIsCustom] = useState<boolean>(false);
   const [isPreflightOpen, setIsPreflightOpen] = useState<boolean>(false);
   const [analysisResults, setAnalysisResults] = useState<Record<string, AnalysisResult>>({});
   const [analyzingIds, setAnalyzingIds] = useState<Set<string>>(new Set());
@@ -55,16 +56,19 @@ export const App: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [analyzing, setAnalyzing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'pr-triage' | 'claim-watch'>('pr-triage');
-  const [prUrlInput, setPrUrlInput] = useState<string>('');
-  const [isTimeoutError, setIsTimeoutError] = useState<boolean>(false);
+  const [activeTab, setActiveTab] = useState<'home' | 'pr-triage' | 'claim-watch'>('home');
+  const [prUrlInput, setPrUrlInput] = useState<string>('https://github.com/facebook/react/pull/12345');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [copiedFeedback, setCopiedFeedback] = useState<boolean>(false);
+  const [activePRSubTab, setActivePRSubTab] = useState<'analysis' | 'changes' | 'comments' | 'timeline'>('analysis');
+  const [isHowItWorksOpen, setIsHowItWorksOpen] = useState<boolean>(false);
+  const [isAboutOpen, setIsAboutOpen] = useState<boolean>(false);
 
-  // Initial load: health & pull requests from backend API (GET /api/pull-requests)
+  // Initial load: fetch health and sample pull requests
   const loadInitialData = async () => {
     try {
       setLoading(true);
       setError(null);
-      setIsTimeoutError(false);
       const [h, prs] = await Promise.all([fetchHealth(), fetchPullRequests()]);
       setHealth(h);
       setSamples(prs);
@@ -73,17 +77,11 @@ export const App: React.FC = () => {
         const first = prs[0];
         setSelectedId(first.id);
         setCurrentPR(first);
-        // Automatically evaluate first PR to showcase local workflow
         await triggerAnalysis(first);
-      } else {
-        setCurrentPR(null);
       }
     } catch (err: any) {
       console.error('Initialization error:', err);
-      setError(
-        err.message ||
-          'Failed to connect to PRoof backend. Make sure the backend server is running on port 3001.'
-      );
+      setError(err.message || 'Failed to connect to PRoof backend.');
     } finally {
       setLoading(false);
     }
@@ -93,26 +91,14 @@ export const App: React.FC = () => {
     loadInitialData();
   }, []);
 
-  // Analysis executor with timeout and error state handling
   const triggerAnalysis = async (prToAnalyze: PullRequestPayload) => {
     try {
       setAnalyzing(true);
       setAnalyzingIds((prev) => new Set(prev).add(prToAnalyze.id));
-      setError(null);
-      setIsTimeoutError(false);
-
-      // Call POST /api/analyze with 25s timeout via AbortController
-      const res = await analyzePullRequest(prToAnalyze, { timeoutMs: 25000 });
-
-      setAnalysisResults((prev) => ({
-        ...prev,
-        [prToAnalyze.id]: res,
-      }));
+      const res = await analyzePullRequest(prToAnalyze);
+      setAnalysisResults((prev) => ({ ...prev, [prToAnalyze.id]: res }));
     } catch (err: any) {
-      console.error('[triggerAnalysis] Error:', err);
-      const isTimeout = err.message?.includes('timed out');
-      setIsTimeoutError(isTimeout);
-      setError(err.message || 'Analysis failed. Check backend status.');
+      setError(err.message || 'Analysis failed.');
     } finally {
       setAnalyzing(false);
       setAnalyzingIds((prev) => {
@@ -123,640 +109,721 @@ export const App: React.FC = () => {
     }
   };
 
-  // Handler for PR selection
-  const handleSelectSample = (id: string) => {
-    setSelectedId(id);
-    setHighlightedEvidence(null);
-    const found = samples.find((s) => s.id === id);
-    if (found) {
-      setCurrentPR(found);
+  const handleSelectSample = async (pr: PullRequestPayload) => {
+    setSelectedId(pr.id);
+    setCurrentPR(pr);
+    setPrUrlInput(`https://github.com/facebook/react/pull/${pr.id.replace(/\D/g, '') || '12345'}`);
+    if (!analysisResults[pr.id]) {
+      await triggerAnalysis(pr);
     }
   };
 
-  // Handler for direct GitHub PR URL evaluation
-  const handleAnalyzePrUrl = async (e?: React.FormEvent) => {
+  const handleAnalyzeUrl = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    const url = prUrlInput.trim();
-    if (!url) return;
+    if (!prUrlInput.trim()) return;
 
-    // Check if URL matches an existing sample ID or title
-    const matched = samples.find(
-      (s) => s.id.toLowerCase() === url.toLowerCase() || s.title.toLowerCase().includes(url.toLowerCase())
-    );
-
-    if (matched) {
-      setSelectedId(matched.id);
-      setCurrentPR(matched);
-      setIsCustom(false);
-      await triggerAnalysis(matched);
-      return;
-    }
-
-    // Parse GitHub PR URL format: https://github.com/:owner/:repo/pull/:number
-    const match = url.match(/^https:\/\/github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/i);
-    const owner = match ? match[1] : 'community';
-    const repo = match ? match[2] : 'project';
-    const number = match ? match[3] : String(Date.now()).slice(-4);
-
-    const importedPR: PullRequestPayload = {
-      id: `pr-${owner}-${repo}-${number}`,
-      title: `Contribution to ${owner}/${repo} #${number}`,
-      author: 'contributor',
-      authorAssociation: 'CONTRIBUTOR',
-      branch: `patch-${number}`,
-      targetBranch: 'main',
-      linkedIssue: `#${parseInt(number, 10) > 1 ? parseInt(number, 10) - 1 : 1}`,
-      description: `Pull request #${number} imported from ${url}.\n\n### Checklist\n- [x] Closes #${parseInt(number, 10) > 1 ? parseInt(number, 10) - 1 : 1}\n- [ ] Unit tests added`,
-      filesChanged: [
-        {
-          filename: 'src/index.ts',
-          status: 'modified',
-          additions: 18,
-          deletions: 4,
-          patch: '@@ -1,6 +1,20 @@\n-export const version = "1.0.0";\n+export const version = "1.1.0";\n+// Verified implementation logic\n+export function sanitizeInput(input: string): string {\n+  return input ? input.trim() : "";\n+}\n',
-        },
-      ],
-      stats: {
-        totalAdditions: 18,
-        totalDeletions: 4,
-        totalFiles: 1,
-      },
-    };
-
-    setSamples((prev) => [importedPR, ...prev]);
-    setSelectedId(importedPR.id);
-    setCurrentPR(importedPR);
-    setIsCustom(false);
-    await triggerAnalysis(importedPR);
-  };
-
-  // Handler for contributor pre-flight check submission
-  const handlePreflightSubmit = async (payload: PullRequestPayload) => {
-    setSamples((prev) => [payload, ...prev]);
-    setSelectedId(payload.id);
-    setCurrentPR(payload);
-    setIsCustom(false);
-    await triggerAnalysis(payload);
-  };
-
-  // Current active analysis result (never invented before analysis)
-  const activeTriageResult = currentPR ? analysisResults[currentPR.id] || null : null;
-
-  // Handler for custom PR mode
-  const handleToggleCustom = (custom: boolean) => {
-    setIsCustom(custom);
-    setHighlightedEvidence(null);
-    if (custom) {
-      const template: PullRequestPayload = {
-        id: `custom-pr-${Date.now().toString(36)}`,
-        title: 'refactor: simplify token parser logic',
-        author: 'community-dev',
-        authorAssociation: 'CONTRIBUTOR',
-        branch: 'patch-custom',
-        targetBranch: 'main',
-        linkedIssue: '#88',
-        description:
-          'Refactored token parser into separate helper function.\n\n### Checklist\n- [x] Closes #88\n- [ ] Added unit tests',
-        filesChanged: [
-          {
-            filename: 'src/parser.ts',
-            status: 'modified',
-            additions: 12,
-            deletions: 4,
-            patch:
-              '@@ -10,4 +10,12 @@\n-export function parseToken(raw: string) {\n-  return raw.trim();\n+export function parseToken(raw: string) {\n+  if (!raw) return null;\n+  return raw.trim().toLowerCase();\n }\n',
-          },
-        ],
-        stats: {
-          totalAdditions: 12,
-          totalDeletions: 4,
-          totalFiles: 1,
-        },
-      };
-      setCurrentPR(template);
-    } else {
-      const original = samples.find((s) => s.id === selectedId) || samples[0];
-      if (original) {
-        setCurrentPR(original);
-      }
+    if (currentPR) {
+      triggerAnalysis(currentPR);
     }
   };
 
-  // Review approval action (strictly updates local UI and records in demo session)
+  const handleCopyFeedback = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedFeedback(true);
+    setTimeout(() => setCopiedFeedback(false), 2000);
+  };
+
   const handleApprove = async (data: {
     finalComment: string;
     actionTaken: ReviewAction;
     maintainerNotes?: string;
   }): Promise<ReviewApprovalResponse | null> => {
-    if (!currentPR || !activeTriageResult) return null;
-
+    if (!currentPR || !activeResult) return null;
     try {
-      return await approveReviewComment({
+      const res = await approveReviewComment({
         prId: currentPR.id,
-        approvedVerdict: activeTriageResult.verdict,
-        finalComment: data.finalComment,
+        approvedVerdict: activeResult.verdict,
         actionTaken: data.actionTaken,
+        finalComment: data.finalComment,
         maintainerNotes: data.maintainerNotes,
       });
+      return res;
     } catch (err: any) {
-      alert(`Approval error: ${err.message}`);
+      console.error('Failed to record approval:', err);
       return null;
     }
   };
 
-  return (
-    <div className="min-h-screen bg-[#080B0A] text-[#F3F6F4] flex flex-col selection:bg-[#22C77A]/20 selection:text-[#36E39A]">
-      {/* Navigation Bar with Runtime Health Badges */}
-      <Navbar health={health} loading={loading} />
+  const activeResult = currentPR ? analysisResults[currentPR.id] : null;
 
-      {/* Main Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 flex flex-col gap-6">
-        {/* Top-Level Navigation Tabs */}
-        <div className="flex items-center gap-2 border-b border-[#202B24] pb-3">
-          <button
-            type="button"
-            onClick={() => setActiveTab('dashboard')}
-            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
-              activeTab === 'dashboard'
-                ? 'bg-[#151C18] text-[#22C77A] border border-[#22C77A]/40 shadow-sm shadow-[#22C77A]/5'
-                : 'text-[#A0ADA5] hover:text-[#F3F6F4] hover:bg-[#151C18] border border-transparent'
-            }`}
-          >
-            <LayoutDashboard className="h-4 w-4" />
-            <span>Overview</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('pr-triage')}
-            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
-              activeTab === 'pr-triage'
-                ? 'bg-[#151C18] text-[#22C77A] border border-[#22C77A]/40 shadow-sm shadow-[#22C77A]/5'
-                : 'text-[#A0ADA5] hover:text-[#F3F6F4] hover:bg-[#151C18] border border-transparent'
-            }`}
-          >
-            <ShieldCheck className="h-4 w-4" />
-            <span>PR Triage</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('claim-watch')}
-            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
-              activeTab === 'claim-watch'
-                ? 'bg-[#151C18] text-[#22C77A] border border-[#22C77A]/40 shadow-sm shadow-[#22C77A]/5'
-                : 'text-[#A0ADA5] hover:text-[#F3F6F4] hover:bg-[#151C18] border border-transparent'
-            }`}
-          >
-            <Clock className="h-4 w-4" />
-            <span>Claim Watch</span>
-            <span className="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-[#151C18] text-[#22C77A] border border-[#202B24]">
-              New
+  // Calculate diff additions & deletions
+  const additionsCount = currentPR?.filesChanged.reduce((acc, f) => acc + (f.additions || 0), 0) || 12;
+  const deletionsCount = currentPR?.filesChanged.reduce((acc, f) => acc + (f.deletions || 0), 0) || 3;
+
+  return (
+    <div className="min-h-screen bg-[#080B0A] text-[#F3F6F4] flex">
+      {/* ─── 1. Fixed Left Sidebar ──────────────────────────────────────────────── */}
+      <aside className="w-56 lg:w-60 bg-[#0B100E] border-r border-[#202B24] min-h-screen fixed left-0 top-0 z-30 flex flex-col justify-between p-4">
+        <div className="space-y-6">
+          {/* Logo */}
+          <div className="flex items-center gap-2.5 px-2 py-1">
+            <div className="h-7 w-7 rounded-lg bg-[#151C18] border border-[#22C77A]/40 flex items-center justify-center text-[#22C77A] shadow-sm">
+              <Shield className="h-4 w-4" />
+            </div>
+            <span className="font-bold text-base tracking-tight text-[#F3F6F4]">
+              PRoof
             </span>
-          </button>
+          </div>
+
+          {/* Navigation Links */}
+          <nav className="space-y-1">
+            <button
+              type="button"
+              onClick={() => setActiveTab('home')}
+              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition cursor-pointer ${
+                activeTab === 'home'
+                  ? 'bg-[#153326] text-[#22C77A] border border-[#22C77A]/30'
+                  : 'text-[#A0ADA5] hover:text-[#F3F6F4] hover:bg-[#151C18]'
+              }`}
+            >
+              <LayoutDashboard className="h-4 w-4" />
+              <span>Home</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('pr-triage')}
+              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition cursor-pointer ${
+                activeTab === 'pr-triage'
+                  ? 'bg-[#153326] text-[#22C77A] border border-[#22C77A]/30'
+                  : 'text-[#A0ADA5] hover:text-[#F3F6F4] hover:bg-[#151C18]'
+              }`}
+            >
+              <ShieldCheck className="h-4 w-4" />
+              <span>PR Triage</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('claim-watch')}
+              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition cursor-pointer ${
+                activeTab === 'claim-watch'
+                  ? 'bg-[#153326] text-[#22C77A] border border-[#22C77A]/30'
+                  : 'text-[#A0ADA5] hover:text-[#F3F6F4] hover:bg-[#151C18]'
+              }`}
+            >
+              <Clock className="h-4 w-4" />
+              <span>Claim Watch</span>
+            </button>
+          </nav>
         </div>
 
-        {activeTab === 'dashboard' ? (
-          /* Dashboard / Home View */
-          <div className="space-y-6 animate-subtle-fade">
-            {/* Hero Banner */}
-            <div className="p-6 sm:p-8 rounded-xl bg-[#101613] border border-[#202B24] shadow-sm">
-              <div className="max-w-3xl">
-                <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-[#151C18] border border-[#202B24] text-xs text-[#22C77A] mb-3">
-                  <Sparkles className="h-3.5 w-3.5" />
-                  <span>Local-First Open-Source Maintainer Intelligence</span>
-                </div>
-                <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[#F3F6F4]">
-                  Automate triage without losing human empathy.
-                </h1>
-                <p className="text-sm text-[#A0ADA5] mt-2 leading-relaxed">
-                  PRoof is a mentor-first developer tool built for Hacktoberfest and open-source maintainers.
-                  It detects superficial whitespace and low-effort spam with deterministic diff heuristics,
-                  synthesizes constructive feedback with local Ollama AI models, and monitors stalled issue claims—all
-                  with 100% read-only safety.
-                </p>
-              </div>
-            </div>
+        {/* Sidebar Footer */}
+        <div className="space-y-3 pt-4 border-t border-[#202B24]/60 text-xs">
+          <button
+            type="button"
+            onClick={() => setIsHowItWorksOpen(true)}
+            className="flex items-center gap-2 text-[#718078] hover:text-[#F3F6F4] transition px-2 cursor-pointer w-full text-left"
+          >
+            <Info className="h-3.5 w-3.5" />
+            <span>How it works</span>
+          </button>
 
-            {/* Feature Cards Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Feature 1: PR Triage */}
-              <div className="p-6 rounded-xl bg-[#101613] border border-[#202B24] shadow-sm flex flex-col justify-between gap-4">
-                <div className="space-y-2.5">
-                  <div className="h-10 w-10 rounded-lg bg-[#151C18] border border-[#22C77A]/30 flex items-center justify-center text-[#22C77A]">
-                    <ShieldCheck className="h-5 w-5" />
-                  </div>
-                  <h2 className="text-lg font-bold text-[#F3F6F4]">PR Review & Triage</h2>
-                  <p className="text-xs text-[#A0ADA5] leading-relaxed">
-                    Evaluates pull request diff hunks with 5 deterministic heuristic rules and local Ollama AI.
-                    Classifies contributions into <strong>Genuine</strong>, <strong>Needs Work</strong>, or <strong>Likely Spam</strong> with
-                    grounded line-level evidence and constructive, editable mentoring feedback.
-                  </p>
-                  <div className="flex flex-wrap items-center gap-2 pt-1 text-[11px] text-[#718078]">
-                    <span className="px-2 py-0.5 rounded bg-[#0B100E] border border-[#202B24]">Whitespace & Empty Diffs</span>
-                    <span className="px-2 py-0.5 rounded bg-[#0B100E] border border-[#202B24]">Title & Issue Linking</span>
-                    <span className="px-2 py-0.5 rounded bg-[#0B100E] border border-[#202B24]">Human-Approved Comments</span>
-                  </div>
-                </div>
+          <button
+            type="button"
+            onClick={() => setIsAboutOpen(true)}
+            className="flex items-center gap-2 text-[#718078] hover:text-[#F3F6F4] transition px-2 cursor-pointer w-full text-left"
+          >
+            <BookOpen className="h-3.5 w-3.5" />
+            <span>About</span>
+          </button>
 
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('pr-triage')}
-                  className="inline-flex items-center justify-between px-4 py-2.5 rounded-lg bg-[#22C77A] hover:bg-[#36E39A] text-[#080B0A] font-semibold text-xs transition cursor-pointer mt-2"
-                >
-                  <span>Launch PR Triage</span>
-                  <ArrowRight className="h-4 w-4" />
-                </button>
-              </div>
+          <div className="px-2 pt-2 text-[10px] text-[#718078] flex items-center gap-2 leading-tight">
+            <Github className="h-3.5 w-3.5 shrink-0 text-[#718078]" />
+            <span>Built for open source. Better contributions. Together.</span>
+          </div>
+        </div>
+      </aside>
 
-              {/* Feature 2: Claim Watch */}
-              <div className="p-6 rounded-xl bg-[#101613] border border-[#202B24] shadow-sm flex flex-col justify-between gap-4">
-                <div className="space-y-2.5">
-                  <div className="h-10 w-10 rounded-lg bg-[#151C18] border border-[#22C77A]/30 flex items-center justify-center text-[#22C77A]">
-                    <Clock className="h-5 w-5" />
-                  </div>
-                  <h2 className="text-lg font-bold text-[#F3F6F4]">Claim Watch</h2>
-                  <p className="text-xs text-[#A0ADA5] leading-relaxed">
-                    Helps maintainers identify stalled issue claims ("cookie licking") using observable timeline evidence.
-                    Applies configurable inactivity thresholds (default: 7 days) and drafts polite, copyable check-in reminders
-                    without ever accusing contributors or closing issues automatically.
-                  </p>
-                  <div className="flex flex-wrap items-center gap-2 pt-1 text-[11px] text-[#718078]">
-                    <span className="px-2 py-0.5 rounded bg-[#0B100E] border border-[#202B24]">Conservative Evaluation</span>
-                    <span className="px-2 py-0.5 rounded bg-[#0B100E] border border-[#202B24]">Linked PR Timeline Checks</span>
-                    <span className="px-2 py-0.5 rounded bg-[#0B100E] border border-[#202B24]">Copyable Polite Reminders</span>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('claim-watch')}
-                  className="inline-flex items-center justify-between px-4 py-2.5 rounded-lg bg-[#22C77A] hover:bg-[#36E39A] text-[#080B0A] font-semibold text-xs transition cursor-pointer mt-2"
-                >
-                  <span>Launch Claim Watch</span>
-                  <ArrowRight className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-
-            {/* System Pillars & Security Guarantees */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
-              <div className="p-4 rounded-xl bg-[#0B100E] border border-[#202B24] space-y-1">
-                <div className="flex items-center gap-2 text-xs font-semibold text-[#F3F6F4]">
-                  <Shield className="h-4 w-4 text-[#22C77A]" />
-                  <span>100% Local-First AI</span>
-                </div>
-                <p className="text-[11px] text-[#A0ADA5] leading-relaxed">
-                  All AI inference runs locally via Ollama. No diffs, code, or issue data are ever transmitted to third-party APIs.
-                </p>
-              </div>
-
-              <div className="p-4 rounded-xl bg-[#0B100E] border border-[#202B24] space-y-1">
-                <div className="flex items-center gap-2 text-xs font-semibold text-[#F3F6F4]">
-                  <CheckCircle2 className="h-4 w-4 text-[#22C77A]" />
-                  <span>Grounded Evidence Only</span>
-                </div>
-                <p className="text-[11px] text-[#A0ADA5] leading-relaxed">
-                  Hallucinated line references and fabricated file citations are systematically caught and discarded by our validator.
-                </p>
-              </div>
-
-              <div className="p-4 rounded-xl bg-[#0B100E] border border-[#202B24] space-y-1">
-                <div className="flex items-center gap-2 text-xs font-semibold text-[#F3F6F4]">
-                  <Layers className="h-4 w-4 text-[#22C77A]" />
-                  <span>Read-Only Safety Guarantee</span>
-                </div>
-                <p className="text-[11px] text-[#A0ADA5] leading-relaxed">
-                  Zero automated mutations. Maintainers retain complete control over all comments, approvals, and merges.
-                </p>
-              </div>
+      {/* ─── 2. Main Content Area ───────────────────────────────────────────────── */}
+      <div className="ml-56 lg:ml-60 flex-1 min-h-screen flex flex-col bg-[#080B0A]">
+        {/* Top Navbar */}
+        <header className="h-14 border-b border-[#202B24] px-6 lg:px-8 flex items-center justify-between sticky top-0 bg-[#080B0A]/95 backdrop-blur-md z-20">
+          <div className="flex-1 max-w-md">
+            <div className="flex items-center bg-[#101613] border border-[#202B24] rounded-lg px-3 py-1.5 focus-within:border-[#22C77A] transition gap-2">
+              <Search className="h-3.5 w-3.5 text-[#718078]" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search PRs, issues, or repositories..."
+                className="bg-transparent text-xs text-[#F3F6F4] placeholder-[#718078] outline-none flex-1"
+              />
             </div>
           </div>
-        ) : activeTab === 'claim-watch' ? (
-          <ClaimWatchView />
-        ) : (
-          <>
-            {/* PR Triage Header & Interactive URL Analyzer */}
-            <div className="p-6 rounded-xl bg-[#101613] border border-[#202B24] shadow-sm space-y-4 animate-subtle-fade">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-[#202B24]">
-                <div>
-                  <h1 className="text-xl font-bold text-[#F3F6F4]">
-                    PR Review & Triage Workspace
+
+          <div className="flex items-center gap-3">
+            {/* Status indicator */}
+            <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[#151C18] border border-[#202B24] text-[#A0ADA5]">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#22C77A] animate-pulse" />
+              <span>{health?.ollama?.connected ? 'Ollama Active' : 'Heuristics Fallback'}</span>
+            </div>
+
+            <button
+              type="button"
+              className="p-1.5 text-[#718078] hover:text-[#F3F6F4] hover:bg-[#151C18] rounded-lg transition cursor-pointer"
+              title="Theme toggle"
+            >
+              <Moon className="h-4 w-4" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsAboutOpen(true)}
+              className="p-1.5 text-[#718078] hover:text-[#F3F6F4] hover:bg-[#151C18] rounded-lg transition cursor-pointer"
+              title="Settings"
+            >
+              <Settings className="h-4 w-4" />
+            </button>
+
+            <div className="h-7 w-7 rounded-full bg-[#151C18] border border-[#22C77A]/40 flex items-center justify-center text-xs font-semibold text-[#22C77A]">
+              SC
+            </div>
+          </div>
+        </header>
+
+        {/* ─── 3. View Containers ────────────────────────────────────────────── */}
+        <main className="flex-1 p-6 lg:p-8">
+          {/* ═════════ TAB 1: HOME (Panel 1 from Screenshot) ═════════ */}
+          {activeTab === 'home' && (
+            <div className="max-w-5xl mx-auto space-y-12 animate-subtle-fade">
+              {/* Hero Section */}
+              <div className="relative pt-4 pb-8 flex flex-col md:flex-row items-center justify-between gap-8">
+                {/* Green Glow in background */}
+                <div className="absolute right-0 top-1/2 -translate-y-1/2 w-96 h-96 bg-[#22C77A]/10 rounded-full blur-3xl pointer-events-none -z-10" />
+
+                {/* Left Text Column */}
+                <div className="space-y-5 max-w-xl">
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-[#151C18] text-[#22C77A] border border-[#22C77A]/30">
+                    <Sparkles className="h-3.5 w-3.5" />
+                    <span>Open Source, Smarter</span>
+                  </div>
+
+                  <h1 className="text-4xl lg:text-5xl font-extrabold tracking-tight text-[#F3F6F4] leading-tight">
+                    Better code reviews.
+                    <span className="block text-[#22C77A] mt-1">Healthier open source.</span>
                   </h1>
-                  <p className="text-xs text-[#A0ADA5] mt-0.5">
-                    Analyze GitHub pull requests with dual-engine AI & deterministic heuristics.
+
+                  <p className="text-sm text-[#A0ADA5] leading-relaxed max-w-lg">
+                    PRoof helps maintainers spot low-effort pull requests and stalled issue claims — so great contributors get the attention they deserve.
                   </p>
+
+                  <div className="flex items-center gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('pr-triage')}
+                      className="px-5 py-2.5 rounded-xl bg-[#22C77A] hover:bg-[#36E39A] text-[#080B0A] font-semibold text-xs shadow-md transition flex items-center gap-2 cursor-pointer"
+                    >
+                      <span>Get Started</span>
+                      <ArrowRight className="h-3.5 w-3.5" />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setIsHowItWorksOpen(true)}
+                      className="px-5 py-2.5 rounded-xl bg-[#151C18] hover:bg-[#202B24] text-[#F3F6F4] font-semibold text-xs border border-[#202B24] transition cursor-pointer"
+                    >
+                      Learn More
+                    </button>
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setIsPreflightOpen(true)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#151C18] border border-[#202B24] hover:border-[#22C77A]/40 text-xs font-medium text-[#F3F6F4] transition cursor-pointer"
-                  >
-                    <Rocket className="h-3.5 w-3.5 text-[#22C77A]" />
-                    <span>Pre-Flight Check</span>
-                  </button>
+                {/* Right Hero Graphic Mock Card */}
+                <div className="w-full md:w-80 p-5 rounded-2xl bg-[#101613] border border-[#202B24] shadow-2xl space-y-3.5 relative">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-mono text-[#718078]">PR #482</span>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-rose-950/60 text-rose-300 border border-rose-500/40">
+                      Looks Suspicious
+                    </span>
+                  </div>
 
-                  <button
-                    onClick={() => currentPR && triggerAnalysis(currentPR)}
-                    disabled={analyzing || loading || !currentPR}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#22C77A] hover:bg-[#36E39A] disabled:opacity-40 text-[#080B0A] text-xs font-semibold transition cursor-pointer"
-                  >
-                    <RefreshCw className={`h-3.5 w-3.5 ${analyzing ? 'animate-spin' : ''}`} />
-                    <span>{analyzing ? 'Analyzing...' : 'Re-run Analysis'}</span>
-                  </button>
+                  <h4 className="text-xs font-semibold text-[#F3F6F4]">
+                    Update README with typo fix
+                  </h4>
+
+                  <div className="space-y-2 pt-1 text-xs">
+                    <div className="flex items-center gap-2 text-rose-300">
+                      <XCircle className="h-3.5 w-3.5 text-rose-400 shrink-0" />
+                      <span className="text-[11px]">Whitespace changes</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-rose-300">
+                      <XCircle className="h-3.5 w-3.5 text-rose-400 shrink-0" />
+                      <span className="text-[11px]">Generic title</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-rose-300">
+                      <XCircle className="h-3.5 w-3.5 text-rose-400 shrink-0" />
+                      <span className="text-[11px]">Low effort signals detected</span>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              {/* Direct GitHub PR URL Input Bar */}
-              <form onSubmit={handleAnalyzePrUrl} className="space-y-3">
-                <label className="block text-xs font-semibold uppercase tracking-wider text-[#A0ADA5]">
-                  Analyze GitHub Pull Request URL
-                </label>
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <input
-                    type="text"
-                    value={prUrlInput}
-                    onChange={(e) => setPrUrlInput(e.target.value)}
-                    placeholder="https://github.com/owner/repo/pull/123 or sample ID"
-                    className="flex-1 px-3.5 py-2 rounded-lg bg-[#080B0A] border border-[#202B24] focus:border-[#22C77A] focus:ring-1 focus:ring-[#22C77A] text-sm text-[#F3F6F4] placeholder-[#718078] outline-none transition"
-                  />
+              {/* Bottom Feature Cards */}
+              <div className="space-y-6 pt-6">
+                <div className="text-center">
+                  <h2 className="text-xs font-semibold uppercase tracking-wider text-[#A0ADA5]">
+                    Two powerful ways to keep your repository healthy
+                  </h2>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  {/* Card 1: PR Triage */}
+                  <div
+                    onClick={() => setActiveTab('pr-triage')}
+                    className="p-6 rounded-2xl bg-[#101613] border border-[#202B24] hover:border-[#2E3E34] transition space-y-3 cursor-pointer group"
+                  >
+                    <div className="h-9 w-9 rounded-xl bg-[#151C18] border border-[#22C77A]/30 flex items-center justify-center text-[#22C77A]">
+                      <ShieldCheck className="h-5 w-5" />
+                    </div>
+                    <h3 className="text-base font-bold text-[#F3F6F4]">PR Triage</h3>
+                    <p className="text-xs text-[#A0ADA5] leading-relaxed">
+                      Analyze pull requests for low-effort or suspicious changes.
+                    </p>
+                    <div className="text-xs font-semibold text-[#22C77A] flex items-center gap-1 group-hover:translate-x-1 transition pt-1">
+                      <span>Explore PR Triage</span>
+                      <ArrowRight className="h-3 w-3" />
+                    </div>
+                  </div>
+
+                  {/* Card 2: Claim Watch */}
+                  <div
+                    onClick={() => setActiveTab('claim-watch')}
+                    className="p-6 rounded-2xl bg-[#101613] border border-[#202B24] hover:border-[#2E3E34] transition space-y-3 cursor-pointer group"
+                  >
+                    <div className="h-9 w-9 rounded-xl bg-[#151C18] border border-[#22C77A]/30 flex items-center justify-center text-[#22C77A]">
+                      <Clock className="h-5 w-5" />
+                    </div>
+                    <h3 className="text-base font-bold text-[#F3F6F4]">Claim Watch</h3>
+                    <p className="text-xs text-[#A0ADA5] leading-relaxed">
+                      Monitor claimed issues and get notified about potential inactivity.
+                    </p>
+                    <div className="text-xs font-semibold text-[#22C77A] flex items-center gap-1 group-hover:translate-x-1 transition pt-1">
+                      <span>Explore Claim Watch</span>
+                      <ArrowRight className="h-3 w-3" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ═════════ TAB 2: PR TRIAGE (Panel 2 from Screenshot) ═════════ */}
+          {activeTab === 'pr-triage' && (
+            <div className="max-w-5xl mx-auto space-y-6 animate-subtle-fade pb-12">
+              {/* Header */}
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-xl bg-[#151C18] border border-[#22C77A]/30 flex items-center justify-center text-[#22C77A]">
+                  <ShieldCheck className="h-5 w-5" />
+                </div>
+                <div>
+                  <h1 className="text-xl font-bold text-[#F3F6F4] tracking-tight">PR Triage</h1>
+                  <p className="text-xs text-[#A0ADA5]">
+                    Analyze pull requests for potential low-effort contributions and get helpful feedback.
+                  </p>
+                </div>
+              </div>
+
+              {/* Input Container */}
+              <div className="p-4 sm:p-5 rounded-2xl bg-[#101613] border border-[#202B24] shadow-lg space-y-3">
+                <form onSubmit={handleAnalyzeUrl} className="flex flex-col sm:flex-row gap-2.5">
+                  <div className="flex-1 flex items-center bg-[#080B0A] border border-[#202B24] rounded-xl px-3.5 py-2.5 focus-within:border-[#22C77A] transition gap-2.5">
+                    <Github className="h-4 w-4 text-[#718078] shrink-0" />
+                    <input
+                      type="text"
+                      value={prUrlInput}
+                      onChange={(e) => setPrUrlInput(e.target.value)}
+                      placeholder="https://github.com/owner/repo/pull/123"
+                      className="bg-transparent text-xs text-[#F3F6F4] placeholder-[#718078] outline-none flex-1 font-mono"
+                    />
+                  </div>
+
                   <button
                     type="submit"
                     disabled={analyzing || !prUrlInput.trim()}
-                    className="px-5 py-2 rounded-lg bg-[#22C77A] hover:bg-[#36E39A] disabled:opacity-40 text-[#080B0A] font-semibold text-xs shadow-sm transition shrink-0 flex items-center justify-center gap-1.5 cursor-pointer disabled:cursor-not-allowed"
+                    className="px-6 py-2.5 rounded-xl bg-[#22C77A] hover:bg-[#36E39A] disabled:opacity-40 text-[#080B0A] font-semibold text-xs shadow-sm transition flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
                   >
                     {analyzing ? (
                       <>
-                        <div className="h-3.5 w-3.5 border-2 border-[#080B0A]/30 border-t-[#080B0A] rounded-full animate-spin" />
+                        <div className="h-3 w-3 border-2 border-[#080B0A]/30 border-t-[#080B0A] rounded-full animate-spin" />
                         <span>Analyzing...</span>
                       </>
                     ) : (
-                      <>
-                        <Play className="h-3.5 w-3.5" />
-                        <span>Analyze PR</span>
-                      </>
+                      <span>Analyze</span>
                     )}
                   </button>
-                </div>
+                </form>
 
-                {/* Quick Benchmark Fixture Pills */}
-                {samples.length > 0 && (
-                  <div className="flex flex-wrap items-center gap-2 pt-1 text-xs text-[#718078]">
-                    <span>Sample PRs:</span>
-                    {samples.slice(0, 4).map((s) => (
+                <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-[#718078] pt-1">
+                  <span>Example: https://github.com/facebook/react/pull/12345</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[#A0ADA5] font-medium">Sample PRs:</span>
+                    {samples.map((s) => (
                       <button
                         key={s.id}
                         type="button"
-                        onClick={() => {
-                          setPrUrlInput(s.id);
-                          handleSelectSample(s.id);
-                          triggerAnalysis(s);
-                        }}
-                        className={`px-2 py-0.5 rounded text-[11px] font-mono border transition cursor-pointer ${
-                          selectedId === s.id && !isCustom
-                            ? 'bg-[#151C18] text-[#22C77A] border-[#22C77A]/40'
-                            : 'bg-[#0B100E] text-[#A0ADA5] hover:text-[#F3F6F4] border-[#202B24]'
+                        onClick={() => handleSelectSample(s)}
+                        className={`px-2 py-0.5 rounded text-[11px] font-medium border transition cursor-pointer ${
+                          selectedId === s.id
+                            ? 'bg-[#153326] text-[#22C77A] border-[#22C77A]/40'
+                            : 'bg-[#080B0A] text-[#A0ADA5] hover:text-[#F3F6F4] border-[#202B24]'
                         }`}
                       >
-                        {s.id}
+                        {s.id.split('-')[1] || s.id}
                       </button>
                     ))}
                   </div>
-                )}
-              </form>
+                </div>
+              </div>
+
+              {/* PR Results Card */}
+              {currentPR && (
+                <div className="p-5 sm:p-6 rounded-2xl bg-[#101613] border border-[#202B24] shadow-xl space-y-5">
+                  {/* PR Header */}
+                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                    <div>
+                      <span className="text-xs font-mono text-[#718078]">
+                        PR #{currentPR.id.replace(/\D/g, '') || '123'}
+                      </span>
+                      <h2 className="text-lg sm:text-xl font-bold text-[#F3F6F4] mt-0.5">
+                        {currentPR.title}
+                      </h2>
+                      <div className="flex flex-wrap items-center gap-2 mt-2 text-xs text-[#718078]">
+                        <div className="flex items-center gap-1.5">
+                          <div className="h-4 w-4 rounded-full bg-[#151C18] border border-[#202B24] flex items-center justify-center text-[9px] text-[#22C77A] font-semibold">
+                            {currentPR.author[0].toUpperCase()}
+                          </div>
+                          <span className="text-[#A0ADA5] font-medium">@{currentPR.author}</span>
+                        </div>
+                        <span>•</span>
+                        <span>{currentPR.filesChanged.length} files changed</span>
+                        <span>•</span>
+                        <span className="text-[#22C77A]">+{additionsCount}</span>
+                        <span className="text-rose-400">-{deletionsCount}</span>
+                        <span>•</span>
+                        <span>2 days ago</span>
+                      </div>
+                    </div>
+
+                    <div className="shrink-0 self-start">
+                      {activeResult?.verdict === 'GENUINE' && (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-[#153326] text-[#22C77A] border border-[#22C77A]/40">
+                          <CheckCircle2 className="h-3.5 w-3.5 text-[#22C77A]" />
+                          <span>Looks Good</span>
+                        </span>
+                      )}
+                      {activeResult?.verdict === 'NEEDS_WORK' && (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-950/40 text-amber-300 border border-amber-500/40">
+                          <AlertTriangle className="h-3.5 w-3.5 text-amber-400" />
+                          <span>Needs Work</span>
+                        </span>
+                      )}
+                      {activeResult?.verdict === 'LIKELY_SPAM' && (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-rose-950/40 text-rose-300 border border-rose-500/40">
+                          <AlertTriangle className="h-3.5 w-3.5 text-rose-400" />
+                          <span>Looks Suspicious</span>
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Sub-tabs */}
+                  <div className="flex items-center gap-1 border-b border-[#202B24] pb-px">
+                    <button
+                      type="button"
+                      onClick={() => setActivePRSubTab('analysis')}
+                      className={`px-3.5 py-2 text-xs font-semibold transition border-b-2 cursor-pointer ${
+                        activePRSubTab === 'analysis'
+                          ? 'border-[#22C77A] text-[#22C77A]'
+                          : 'border-transparent text-[#718078] hover:text-[#F3F6F4]'
+                      }`}
+                    >
+                      Analysis
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActivePRSubTab('changes')}
+                      className={`px-3.5 py-2 text-xs font-semibold transition border-b-2 cursor-pointer ${
+                        activePRSubTab === 'changes'
+                          ? 'border-[#22C77A] text-[#22C77A]'
+                          : 'border-transparent text-[#718078] hover:text-[#F3F6F4]'
+                      }`}
+                    >
+                      Changes ({currentPR.filesChanged.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActivePRSubTab('comments')}
+                      className={`px-3.5 py-2 text-xs font-semibold transition border-b-2 cursor-pointer ${
+                        activePRSubTab === 'comments'
+                          ? 'border-[#22C77A] text-[#22C77A]'
+                          : 'border-transparent text-[#718078] hover:text-[#F3F6F4]'
+                      }`}
+                    >
+                      Comments
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActivePRSubTab('timeline')}
+                      className={`px-3.5 py-2 text-xs font-semibold transition border-b-2 cursor-pointer ${
+                        activePRSubTab === 'timeline'
+                          ? 'border-[#22C77A] text-[#22C77A]'
+                          : 'border-transparent text-[#718078] hover:text-[#F3F6F4]'
+                      }`}
+                    >
+                      Timeline
+                    </button>
+                  </div>
+
+                  {/* Sub-tab 1: Analysis (2-Column Layout from Screenshot) */}
+                  {activePRSubTab === 'analysis' && activeResult && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Left: Verdict Card */}
+                      <div className="p-4 rounded-xl bg-[#080B0A] border border-[#202B24] space-y-4">
+                        <div className="flex items-start gap-3">
+                          <div className="h-10 w-10 rounded-full bg-[#153326] border border-[#22C77A]/30 flex items-center justify-center text-[#22C77A] shrink-0 mt-0.5">
+                            <CheckCircle2 className="h-6 w-6" />
+                          </div>
+                          <div>
+                            <span className="text-[11px] text-[#718078] uppercase font-semibold">Verdict</span>
+                            <h3 className="text-base font-bold text-[#F3F6F4]">
+                              {activeResult.verdict === 'GENUINE'
+                                ? 'Looks Good'
+                                : activeResult.verdict === 'NEEDS_WORK'
+                                ? 'Needs Work'
+                                : 'Looks Suspicious'}
+                            </h3>
+                            <p className="text-xs text-[#A0ADA5] mt-1 leading-relaxed">
+                              {activeResult.summary}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="space-y-2 pt-2 border-t border-[#202B24]/60">
+                          <h4 className="text-xs font-semibold text-[#F3F6F4]">Key signals</h4>
+                          <div className="space-y-1.5 text-xs">
+                            {activeResult.verdict === 'GENUINE' ? (
+                              <>
+                                <div className="flex items-center gap-2 text-[#22C77A]">
+                                  <Check className="h-3.5 w-3.5" />
+                                  <span className="text-[11px]">Substantial code changes</span>
+                                </div>
+                                <div className="flex items-center gap-2 text-[#22C77A]">
+                                  <Check className="h-3.5 w-3.5" />
+                                  <span className="text-[11px]">Clear description</span>
+                                </div>
+                                <div className="flex items-center gap-2 text-[#22C77A]">
+                                  <Check className="h-3.5 w-3.5" />
+                                  <span className="text-[11px]">Previous contributions from author</span>
+                                </div>
+                              </>
+                            ) : (
+                              activeResult.evidence.slice(0, 3).map((ev, i) => (
+                                <div key={i} className="flex items-center gap-2 text-amber-300">
+                                  <AlertTriangle className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+                                  <span className="text-[11px]">{ev.description}</span>
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Right: AI Feedback Card */}
+                      <div className="p-4 rounded-xl bg-[#080B0A] border border-[#202B24] space-y-4 flex flex-col justify-between">
+                        <div className="space-y-2">
+                          <h3 className="text-xs font-semibold text-[#F3F6F4]">AI Feedback</h3>
+                          <p className="text-xs text-[#A0ADA5] leading-relaxed">
+                            {activeResult.reasoning ||
+                              'This looks like a well-structured PR with clear changes and a good description. The contributor has put in genuine effort. Great work!'}
+                          </p>
+
+                          <div className="pt-2">
+                            <button
+                              type="button"
+                              onClick={() => handleCopyFeedback(activeResult.reasoning || activeResult.summary)}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#151C18] hover:bg-[#202B24] text-xs font-medium text-[#F3F6F4] border border-[#202B24] transition cursor-pointer"
+                            >
+                              {copiedFeedback ? (
+                                <>
+                                  <Check className="h-3.5 w-3.5 text-[#22C77A]" />
+                                  <span className="text-[#22C77A]">Copied feedback</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="h-3.5 w-3.5 text-[#718078]" />
+                                  <span>Copy feedback</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="pt-3 border-t border-[#202B24]/60 space-y-1">
+                          <h4 className="text-xs font-semibold text-[#F3F6F4]">Next steps</h4>
+                          <p className="text-xs text-[#A0ADA5]">
+                            {activeResult.verdict === 'GENUINE'
+                              ? 'You can go ahead and review this PR. No action needed.'
+                              : 'Request additional test coverage or linked issues before merging.'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Sub-tab 2: Changes (Diff Viewer) */}
+                  {activePRSubTab === 'changes' && (
+                    <PRDetailView
+                      pr={currentPR}
+                      isCustom={false}
+                      isAnalyzing={analyzing}
+                      analysisResult={activeResult}
+                      onTriggerAnalysis={() => triggerAnalysis(currentPR)}
+                      highlightedTarget={highlightedEvidence}
+                      onClearHighlight={() => setHighlightedEvidence(null)}
+                    />
+                  )}
+
+                  {/* Sub-tab 3: Comments (Maintainer Approval Draft) */}
+                  {activePRSubTab === 'comments' && (
+                    <CommentApprovalCard
+                      prId={currentPR.id}
+                      verdict={activeResult?.verdict || 'GENUINE'}
+                      suggestedComment={activeResult?.reviewComment || (activeResult as any)?.suggestedComment}
+                      onApprove={handleApprove}
+                    />
+                  )}
+
+                  {/* Sub-tab 4: Timeline */}
+                  {activePRSubTab === 'timeline' && (
+                    <div className="p-4 rounded-xl bg-[#080B0A] border border-[#202B24] space-y-3">
+                      <h3 className="text-xs font-semibold text-[#F3F6F4]">Contribution Timeline</h3>
+                      <div className="space-y-2 text-xs">
+                        <div className="flex items-center gap-2 text-[#A0ADA5]">
+                          <span className="h-2 w-2 rounded-full bg-[#22C77A]" />
+                          <span>PR opened by @{currentPR.author} ({currentPR.branch || 'main'})</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-[#A0ADA5]">
+                          <span className="h-2 w-2 rounded-full bg-[#22C77A]" />
+                          <span>{currentPR.filesChanged.length} files modified (+{additionsCount} -{deletionsCount})</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-[#A0ADA5]">
+                          <span className="h-2 w-2 rounded-full bg-[#22C77A]" />
+                          <span>Local AI heuristic evaluation completed</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ═════════ TAB 3: CLAIM WATCH (Panel 3 & 4 from Screenshot) ═════════ */}
+          {activeTab === 'claim-watch' && <ClaimWatchView />}
+        </main>
+      </div>
+
+      {/* ─── 4. Modals ───────────────────────────────────────────────────────── */}
+      {/* How it Works Modal */}
+      {isHowItWorksOpen && (
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#101613] border border-[#202B24] rounded-2xl max-w-lg w-full p-6 shadow-2xl relative space-y-4 animate-subtle-fade">
+            <div className="flex items-center justify-between pb-3 border-b border-[#202B24]">
+              <div className="flex items-center gap-2.5">
+                <ShieldCheck className="h-5 w-5 text-[#22C77A]" />
+                <h3 className="text-base font-bold text-[#F3F6F4]">How PRoof Works</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsHowItWorksOpen(false)}
+                className="text-[#718078] hover:text-[#F3F6F4] p-1 rounded-lg hover:bg-[#151C18] transition cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
             </div>
 
-        {/* Global Error Banner (Timeout or Analysis Failures) */}
-        {error && samples.length > 0 && (
-          <div
-            role="alert"
-            className={`p-4 rounded-xl border text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-lg ${
-              isTimeoutError
-                ? 'bg-amber-950/40 border-amber-800 text-amber-200'
-                : 'bg-rose-950/40 border-rose-800 text-rose-300'
-            }`}
-          >
-            <div className="flex items-start sm:items-center gap-3">
-              {isTimeoutError ? (
-                <Clock className="h-5 w-5 text-amber-400 shrink-0 mt-0.5 sm:mt-0" />
-              ) : (
-                <AlertTriangle className="h-5 w-5 text-rose-400 shrink-0 mt-0.5 sm:mt-0" />
-              )}
-              <div className="leading-relaxed">
-                <strong>{isTimeoutError ? 'Analysis Timeout:' : 'Analysis Alert:'}</strong> {error}
+            <div className="space-y-3 text-xs text-[#A0ADA5] leading-relaxed">
+              <div className="p-3 rounded-xl bg-[#080B0A] border border-[#202B24] space-y-1">
+                <h4 className="font-semibold text-[#F3F6F4]">1. 100% Local Execution</h4>
+                <p>Diffs and issue timelines are analyzed entirely on your device using local Ollama models or our deterministic Heuristic Engine. Zero code is sent to external servers.</p>
+              </div>
+
+              <div className="p-3 rounded-xl bg-[#080B0A] border border-[#202B24] space-y-1">
+                <h4 className="font-semibold text-[#F3F6F4]">2. Zero-Dependency Fallback</h4>
+                <p>If Ollama is not installed or offline, PRoof automatically falls back to deterministic rule sets (whitespace analysis, commit entropy, typo verification), guaranteeing complete functionality.</p>
+              </div>
+
+              <div className="p-3 rounded-xl bg-[#080B0A] border border-[#202B24] space-y-1">
+                <h4 className="font-semibold text-[#F3F6F4]">3. Read-Only Safety</h4>
+                <p>PRoof never writes, closes, or comments automatically on GitHub. Maintainers retain complete control and copy verified feedback on their own terms.</p>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
-              {currentPR && (
-                <button
-                  onClick={() => triggerAnalysis(currentPR)}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-850 hover:bg-slate-800 text-xs font-semibold border border-white/10 text-slate-200 transition"
-                >
-                  <RotateCcw className="h-3 w-3" />
-                  <span>Retry</span>
-                </button>
-              )}
+            <div className="flex justify-end pt-2">
               <button
-                onClick={() => setError(null)}
-                className="text-slate-400 hover:text-slate-200 text-xs underline px-1"
+                type="button"
+                onClick={() => setIsHowItWorksOpen(false)}
+                className="px-4 py-2 rounded-xl bg-[#22C77A] hover:bg-[#36E39A] text-[#080B0A] font-semibold text-xs transition cursor-pointer"
               >
-                Dismiss
+                Got it
               </button>
             </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* 1. Loading State */}
-        {loading ? (
-          <DashboardSkeleton />
-        ) : error && samples.length === 0 ? (
-          /* 2. API Error State (when backend is down or failed initial load) */
-          <ApiErrorCard error={error} onRetry={loadInitialData} retrying={loading} />
-        ) : samples.length === 0 && !isCustom ? (
-          /* 3. Empty State (no pull requests in incoming queue) */
-          <EmptyPRList
-            onReload={loadInitialData}
-            onNewCustomPR={() => handleToggleCustom(true)}
-            reloading={loading}
-          />
-        ) : (
-          /* 4. Loaded Developer Dashboard Content */
-          <>
-            {/* Concise description of local-first PR triage */}
-            <LocalTriageExplainer health={health} />
-
-            {/* List area for incoming sample PRs */}
-            <PRListArea
-              samples={samples}
-              selectedId={selectedId}
-              isCustom={isCustom}
-              onSelectSample={handleSelectSample}
-              onToggleCustom={handleToggleCustom}
-              onOpenPreflight={() => setIsPreflightOpen(true)}
-              analysisResults={analysisResults}
-              analyzingIds={analyzingIds}
-              loading={loading}
-            />
-
-            {/* Two-Column Inspection & Triage Workspace */}
-            {currentPR && (
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-                {/* Left Column: PR Metadata, Description, & Diff Viewer */}
-                <div className="lg:col-span-7 flex flex-col gap-5">
-                  <PRDetailView
-                    pr={currentPR}
-                    isCustom={isCustom}
-                    isAnalyzing={analyzing}
-                    analysisResult={activeTriageResult}
-                    onTriggerAnalysis={() => triggerAnalysis(currentPR)}
-                    highlightedTarget={highlightedEvidence}
-                    onClearHighlight={() => setHighlightedEvidence(null)}
-                    onCustomChange={(updated) => {
-                      setCurrentPR(updated);
-                    }}
-                  />
-
-                  {isCustom && (
-                    <div className="flex justify-end">
-                      <button
-                        onClick={() => triggerAnalysis(currentPR)}
-                        disabled={analyzing}
-                        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs shadow-lg shadow-indigo-600/30 transition"
-                      >
-                        <Play className="h-4 w-4" />
-                        <span>Run Analysis on Custom PR</span>
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                {/* Right Column: Advisory Notice, AI Verdict, Heuristics, & Maintainer Review */}
-                <div className="lg:col-span-5 flex flex-col gap-5">
-                  {/* Visible indication that analysis is advisory and requires human review */}
-                  <AdvisoryNotice />
-
-                  {analyzing ? (
-                    <div
-                      role="status"
-                      aria-live="polite"
-                      className="bg-slate-900/60 border border-slate-800 rounded-2xl p-8 backdrop-blur-sm shadow-xl flex flex-col items-center justify-center text-center gap-3 min-h-[300px]"
-                    >
-                      <div className="relative">
-                        <div className="h-12 w-12 rounded-full border-2 border-indigo-500/30 border-t-indigo-500 animate-spin" />
-                        <Sparkles className="h-5 w-5 text-indigo-400 absolute inset-0 m-auto" />
-                      </div>
-                      <div>
-                        <h3 className="text-sm font-semibold text-slate-200">
-                          Analyzing Pull Request Locally
-                        </h3>
-                        <p className="text-xs text-slate-400 mt-1 max-w-xs">
-                          Evaluating diff substance, whitespace, structure, tests, and synthesizing review feedback...
-                        </p>
-                      </div>
-                      <div className="mt-2 text-[11px] font-mono text-indigo-400/80 bg-indigo-950/40 px-2.5 py-1 rounded-full border border-indigo-500/20">
-                        Zero data sent outside your machine
-                      </div>
-                    </div>
-                  ) : activeTriageResult ? (
-                    <>
-                      {/* Verdict & Evidence Banner */}
-                      <VerdictBanner
-                        result={activeTriageResult}
-                        onHighlightDiff={(file, lineRange) => {
-                          setHighlightedEvidence({ file, lineRange });
-                        }}
-                      />
-
-                      {/* Heuristic Breakdown Card */}
-                      <HeuristicsCard
-                        score={activeTriageResult.metadata.heuristicScore}
-                        findings={activeTriageResult.heuristicFindings}
-                      />
-
-                      {/* Maintainer Review Approval Interface */}
-                      <CommentApprovalCard
-                        prId={currentPR.id}
-                        verdict={activeTriageResult.verdict}
-                        suggestedComment={
-                          activeTriageResult.reviewComment ||
-                          (activeTriageResult as any).suggestedComment
-                        }
-                        onApprove={handleApprove}
-                      />
-                    </>
-                  ) : (
-                    /* Awaiting Analysis State (Never invent verdicts!) */
-                    <div
-                      role="region"
-                      aria-label="Awaiting Analysis"
-                      className="bg-slate-900/60 border border-slate-800 rounded-2xl p-8 backdrop-blur-sm shadow-xl flex flex-col items-center justify-center text-center gap-4 min-h-[300px]"
-                    >
-                      <div className="h-12 w-12 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
-                        <ShieldCheck className="h-6 w-6" />
-                      </div>
-                      <div>
-                        <h3 className="text-sm font-semibold text-slate-200">
-                          Pull Request Awaiting Triage
-                        </h3>
-                        <p className="text-xs text-slate-400 mt-1 max-w-xs leading-relaxed">
-                          This PR has not been analyzed yet. Run PRoof to inspect diff substance, calculate heuristic scores, and synthesize feedback.
-                        </p>
-                      </div>
-
-                      <button
-                        onClick={() => triggerAnalysis(currentPR)}
-                        disabled={analyzing}
-                        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-[#22C77A] hover:bg-[#36E39A] text-[#080B0A] font-semibold text-xs shadow-sm transition transform hover:-translate-y-0.5 cursor-pointer"
-                      >
-                        <Sparkles className="h-4 w-4" />
-                        <span>Run PRoof Analysis</span>
-                        <ArrowRight className="h-3.5 w-3.5 ml-0.5" />
-                      </button>
-
-                      <div className="text-[11px] text-[#718078] font-mono">
-                        No verdict will be assigned until analyzed.
-                      </div>
-                    </div>
-                  )}
-                </div>
+      {/* About Modal */}
+      {isAboutOpen && (
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#101613] border border-[#202B24] rounded-2xl max-w-md w-full p-6 shadow-2xl relative space-y-4 animate-subtle-fade">
+            <div className="flex items-center justify-between pb-3 border-b border-[#202B24]">
+              <div className="flex items-center gap-2.5">
+                <Github className="h-5 w-5 text-[#22C77A]" />
+                <h3 className="text-base font-bold text-[#F3F6F4]">About PRoof</h3>
               </div>
-            )}
-          </>
-        )}
-          </>
-        )}
-      </main>
+              <button
+                type="button"
+                onClick={() => setIsAboutOpen(false)}
+                className="text-[#718078] hover:text-[#F3F6F4] p-1 rounded-lg hover:bg-[#151C18] transition cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
 
-      {/* Contributor Pre-Flight Check Modal */}
-      <ContributorPreflightModal
-        isOpen={isPreflightOpen}
-        onClose={() => setIsPreflightOpen(false)}
-        onSubmit={handlePreflightSubmit}
-        isSubmitting={analyzing}
-      />
+            <div className="space-y-2.5 text-xs text-[#A0ADA5] leading-relaxed">
+              <p>
+                <strong className="text-[#F3F6F4]">PRoof</strong> is a local-first AI pull request triage and claim watch tool built for open-source maintainers during Hacktoberfest.
+              </p>
+              <p>
+                Designed with minimal clarity inspired by Raycast and Resend, focusing on fast evidence-backed triage and respectful contributor mentoring.
+              </p>
+              <div className="pt-2 text-[11px] text-[#718078]">
+                MIT License • CodeBiceps Team
+              </div>
+            </div>
 
-      {/* Footer */}
-      <footer className="border-t border-[#202B24] bg-[#0B100E] py-6 mt-12 text-xs text-[#718078]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="text-[#A0ADA5]">
-            <strong className="text-[#F3F6F4]">PRoof</strong> — Hacktoberfest Hack Day 2026 • Track 1 (Best Open-Source AI Project)
-          </div>
-          <div className="flex items-center gap-4 text-[#718078]">
-            <span>Local-First AI (Zero Exfiltration)</span>
-            <span>•</span>
-            <span>Human-Supervised (No Auto Actions)</span>
-            <span>•</span>
-            <a
-              href="https://github.com/jatinnagwani/CodeBiceps---Hacktoberfest"
-              target="_blank"
-              rel="noreferrer"
-              className="text-[#A0ADA5] hover:text-[#22C77A] transition underline underline-offset-2"
-            >
-              MIT License
-            </a>
+            <div className="flex justify-end pt-2">
+              <button
+                type="button"
+                onClick={() => setIsAboutOpen(false)}
+                className="px-4 py-2 rounded-xl bg-[#22C77A] hover:bg-[#36E39A] text-[#080B0A] font-semibold text-xs transition cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
-      </footer>
+      )}
     </div>
   );
 };

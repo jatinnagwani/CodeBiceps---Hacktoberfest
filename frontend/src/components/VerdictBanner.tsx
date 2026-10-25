@@ -85,31 +85,31 @@ export const VerdictBanner: React.FC<VerdictBannerProps> = ({
   return (
     <section
       aria-label="Triage Analysis Result"
-      className={`border rounded-2xl p-4 sm:p-5 backdrop-blur-sm shadow-xl transition duration-300 flex flex-col gap-4 ${details.cardBg} ${details.glow}`}
+      className={`border rounded-2xl p-4 sm:p-5 backdrop-blur-sm shadow-xl transition duration-300 flex flex-col gap-4 overflow-hidden ${details.cardBg} ${details.glow}`}
     >
       {/* Top Banner: Verdict, Confidence, Engine Attribution */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/10">
-        <div className="flex items-start sm:items-center gap-3">
-          <div className="p-2 sm:p-2.5 rounded-xl bg-slate-900/80 border border-white/10 shadow-inner shrink-0 mt-0.5 sm:mt-0">
+      <div className="flex flex-col gap-3 pb-3 border-b border-[#202B24]">
+        <div className="flex items-start gap-3">
+          <div className="p-2 sm:p-2.5 rounded-xl bg-[#0B100E] border border-[#202B24] shadow-inner shrink-0 mt-0.5">
             {details.icon}
           </div>
-          <div>
+          <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <h2 className="text-lg sm:text-xl font-extrabold text-white tracking-tight">
+              <h2 className="text-base sm:text-lg font-extrabold text-[#F3F6F4] tracking-tight">
                 {details.title}
               </h2>
               <span
-                className={`px-2.5 py-0.5 rounded-md text-xs font-bold border tracking-wide uppercase ${details.badgeBg}`}
+                className={`px-2 py-0.5 rounded text-[10px] font-bold border tracking-wide uppercase ${details.badgeBg}`}
               >
                 {result.verdict.replace('_', ' ')}
               </span>
             </div>
-            <p className="text-xs text-slate-300 mt-0.5">{details.subtitle}</p>
+            <p className="text-xs text-[#A0ADA5] mt-0.5 leading-relaxed">{details.subtitle}</p>
           </div>
         </div>
 
         {/* Engine Origin & Confidence Pills */}
-        <div className="flex flex-wrap items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-[#202B24]/40">
           {/* Confidence Indicator */}
           <span
             className={`px-2.5 py-1 rounded-lg text-xs font-semibold border flex items-center gap-1.5 ${getConfidenceBadge(
@@ -140,13 +140,13 @@ export const VerdictBanner: React.FC<VerdictBannerProps> = ({
             </span>
           ) : (
             <span
-              className="px-2.5 py-1 rounded-lg text-xs font-semibold border bg-indigo-500/15 text-indigo-300 border-indigo-500/30 flex items-center gap-1.5"
+              className="px-2.5 py-1 rounded-lg text-xs font-semibold border bg-[#151C18] text-[#22C77A] border-[#22C77A]/30 flex items-center gap-1.5"
               title={`Evaluated locally with model: ${result.engineDetails.modelName}`}
             >
-              <Cpu className="h-3.5 w-3.5 text-indigo-400" />
+              <Cpu className="h-3.5 w-3.5 text-[#22C77A]" />
               <span>Local AI ({result.engineDetails.modelName || 'proof-reviewer'})</span>
               {result.engineDetails.executionTimeMs > 0 && (
-                <span className="text-[10px] text-indigo-400/80 font-mono">
+                <span className="text-[10px] text-[#22C77A]/80 font-mono">
                   ({result.engineDetails.executionTimeMs}ms)
                 </span>
               )}
